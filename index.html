@@ -278,25 +278,92 @@ body.embed .wrap{padding-top:0}
 details .mk-ico{width:1.25em;height:1.25em;vertical-align:-.3em}
 @media (max-width:520px){.mk-place{font-size:1.45rem}.mk-padrow{gap:6px}.mk-padrow button{font-size:.9rem;padding-right:9px}.mk-rows{gap:18px 10px}.mk-name{font-size:.96rem}}
 @media (max-width:330px){.mk-rows{grid-template-columns:1fr}}
-@media print{
-  .mk-pad,.mk-acc,.mk-set,.mk-tools,.mk-note,.mk-help,.mk-tut,.mk-x{display:none!important}
+/* Abgeben direkt bei der Anklage */
+.mk-submit{width:100%;margin-top:12px;background:var(--yel);font-size:1.1rem;padding:9px 12px}
+.mk-submit:hover:not(:disabled){background:#ffe27a}
+/* Breite Bildschirme (Computer, iPad quer und hoch): Plan links, Hinweise rechts – alles auf einem Bildschirm */
+@media screen and (min-width:700px){
+  .mk{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);gap:0 24px;align-items:start}
+  .mk-file{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:4px 16px;margin:0 0 6px}
+  .mk-file .mk-top{margin:0}
+  .mk-place{margin:0;font-size:1.45rem}
+  .mk-vline{margin:0}
+  .mk-task{display:none}
+  .mk-l{position:sticky;top:6px}
+  .mk-r{display:flex;flex-direction:column}
+  .mk-r .mk-legend{order:5;width:100%}
+  .mk-r .mk-acc{width:100%}
+  .mk-plan{width:min(100%,max(320px,calc(100vh - 285px)),560px)}
+  .mk-set{width:100%;margin-top:12px}
+  .mk-set .mk-padlbl small{display:none}
+  .mk-set .mk-padrow{gap:6px}
+  .mk-set .mk-padrow button{font-size:.86rem;padding:2px 9px 2px 3px;border-radius:12px;box-shadow:0 3px 0 var(--k)}
+  .mk-set .mk-av.xs{width:26px;height:26px}
+  .mk-tools{width:100%;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:10px}
+  .mk-tools .mk-btn{padding:4px 2px 3px;font-size:.66rem;border-radius:11px;box-shadow:0 3px 0 var(--k)}
+  .mk-tools .ic{font-size:1.15rem}
+  .mk-sheet{margin-top:0}
+  .mk-sheet h3,.mk-sheet .mk-note{text-align:left}
+  .mk-sheet .mk-note{margin-bottom:10px}
+  .mk-rows{grid-template-columns:1fr;gap:9px}
+  .mk-row{flex-direction:row;align-items:stretch}
+  .mk-pol{flex:none;align-self:center;padding:3px 3px 0}
+  .mk-pol .mk-av{width:54px;height:54px}
+  .mk-name{font-size:.9rem;padding:0 2px}
+  .mk-box{flex:1;margin:0 0 0 -9px;padding:7px 10px 7px 18px;display:flex;align-items:center;border-radius:12px;box-shadow:3px 3px 0 var(--k)}
+  .mk-box ul{width:100%}
+  .mk-box li{font-size:.88rem;text-align:left;margin-bottom:3px}
+  .mk-row.vic .mk-stamp{top:-9px;right:-4px}
+  body:not(.setup-mode):not(.embed) .top{margin-bottom:6px;padding-bottom:6px}
+  body:not(.setup-mode):not(.embed) .logo{height:40px}
+  body:not(.setup-mode):not(.embed) .sub{display:none}
+  body:not(.setup-mode):not(.embed) .titlebox h1{font-size:1.3rem}
+  body:not(.setup-mode):not(.embed) .stats{margin-bottom:4px;font-size:.88rem}
+  .mk-acc{margin-top:18px}
+  body.embed .mk-l{position:static}
+  body.embed .mk-plan{width:min(100%,520px)}
+  /* Seite breiter, Werkzeug-Karte schmaler */
+  .wrap{max-width:1320px}
+  .right{flex:0 1 240px;min-width:220px}
+}
+@media screen and (min-width:700px) and (max-width:899px){
   .left{flex:1 1 100%}
-  .mk-task{box-shadow:none;border-width:2px;border-left-width:6px}
-  .mk-plan{width:12.6cm}
+  .right{flex:1 1 100%;max-width:none}
+}
+/* Druck: genau eine A4-Seite (Plan + Legende oben, Karten darunter) */
+@page{size:A4 portrait;margin:9mm}
+@media print{
+  .mk-pad,.mk-acc,.mk-set,.mk-tools,.mk-note,.mk-help,.mk-tut,.mk-x,.mk-submit{display:none!important}
+  .left{flex:1 1 100%}
+  .mk{display:grid;grid-template-columns:auto 1fr;gap:0 .5cm;align-items:start}
+  .mk-l,.mk-r{display:contents}
+  .mk-file{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:2px 14px;margin:0 0 .15cm}
+  .mk-file .mk-top{margin:0}
+  .mk-tab{box-shadow:none}
+  .mk-place{margin:0;font-size:1.25rem}
+  .mk-vline{margin:0;font-size:.95rem}
+  .mk-vline .mk-av{width:26px;height:26px;border-width:2px}
+  .mk-task{flex:1 1 100%;box-shadow:none;border-width:1.5px;border-left-width:5px;padding:2px 8px;font-size:.8rem;line-height:1.3}
+  .mk-plan{width:11.4cm;margin:0}
   .mk-plan .board{box-shadow:none}
-  .g-mordoku .cell{font-size:calc(11.8cm / var(--n) * .55)}
+  .g-mordoku .cell{font-size:calc(10.8cm / var(--n) * .55)}
   .g-mordoku .cell.sel{box-shadow:none}
-  .mk-room{font-size:calc(11.8cm / var(--n) * .12)}
-  .mk-legend{width:100%}
-  .mk-sheet{margin-top:10px}
-  .mk-sheet h3,.mk-sheet .mk-note{break-after:avoid}
-  .mk-rows{grid-template-columns:repeat(3,1fr);gap:14px 10px}
-  .mk-row{break-inside:avoid}
-  .mk-pol,.mk-box,.mk-tab{box-shadow:none}
-  .mk-pol .mk-av{width:56px;height:56px}
-  .mk-box li{cursor:default;font-size:.85rem}
+  .mk-room{font-size:calc(10.8cm / var(--n) * .125)}
+  .mk-legend{width:auto;margin:.55cm 0 0;font-size:.74rem;gap:4px 7px;align-self:start}
+  .mk-legend .mk-sw{font-size:.66rem;padding:1px 6px}
+  .mk-legend .mk-ico{width:1.2em;height:1.2em}
+  .mk-sheet{grid-column:1/-1;margin-top:.3cm}
+  .mk-sheet h3{font-size:.95rem;text-align:left}
+  .mk-rows{grid-template-columns:repeat(4,minmax(0,1fr));gap:.28cm .26cm}
+  .mk-row{break-inside:avoid;align-items:stretch}
+  .mk-pol{flex-direction:row;align-items:center;gap:5px;box-shadow:none;transform:none;border-width:1.5px;padding:2px 7px 2px 2px;align-self:flex-start;border-radius:5px}
+  .mk-pol .mk-av{width:34px;height:34px}
+  .mk-name{font-size:.82rem;padding:0}
+  .mk-box{box-shadow:none;border-width:1.5px;margin-top:-5px;padding:8px 6px 4px;border-radius:7px}
+  .mk-box li{cursor:default;font-size:.7rem;line-height:1.22;margin-bottom:2px;text-align:left}
   .mk-box li.struck{opacity:1;text-decoration:none}
-  .mk-printq{display:block;margin:12px 0 0;font-size:1.1rem;font-family:var(--mkf);font-weight:800}
+  .mk-row.vic .mk-stamp{font-size:.55rem;top:-2px;right:-2px}
+  .mk-printq{grid-column:1/-1;display:block;margin:.3cm 0 0;font-size:.95rem;font-weight:800}
 }
 
 
@@ -1190,6 +1257,8 @@ class MordokuPuzzle extends GridPuzzle{
       +`<p class="mk-vline">${this.av(V,'sm')} <b>${this.names[V]}</b> <span class="mk-stamp">OPFER</span></p>`
       +`<p class="mk-task">Stelle alle ${N} Personen auf den Plan – in jeder Zeile und jeder Spalte steht genau eine. Wer mit dem Opfer allein in einem Raum war, hat die Tat begangen.</p>`;
     root.appendChild(file);
+    const left=document.createElement('div');left.className='mk-l';const right=document.createElement('div');right.className='mk-r';
+    root.appendChild(left);root.appendChild(right);
     file.querySelector('#mkHelp').addEventListener('click',()=>this.openTut());
     const plan=document.createElement('div');plan.className='mk-plan';plan.style.setProperty('--n',N);
     let hh='<div class="mk-nord"></div><div class="mk-colh">';
@@ -1197,7 +1266,7 @@ class MordokuPuzzle extends GridPuzzle{
     hh+='</div><div class="mk-rowh">';
     for(let r=0;r<N;r++)hh+=`<span>${r+1}</span>`;
     plan.innerHTML=hh+'</div>';
-    plan.appendChild(this.buildBoard());root.appendChild(plan);
+    plan.appendChild(this.buildBoard());left.appendChild(plan);
     /* Personen direkt unter dem Plan (kein Scrollen auf dem Smartphone) */
     const set=document.createElement('div');set.className='mk-set';
     set.innerHTML='<p class="mk-padlbl">Aufstellen <small>– Feld antippen, dann Person wählen</small></p>';
@@ -1207,7 +1276,7 @@ class MordokuPuzzle extends GridPuzzle{
       const b=document.createElement('button');b.type='button';b.innerHTML=this.av(p,'xs')+' '+this.names[p];b.title=this.names[p];
       b.addEventListener('click',()=>this.input(p+1));r1.appendChild(b);this.padBtns.push(b);
     }
-    root.appendChild(set);
+    left.appendChild(set);
     /* Werkzeuge */
     const tools=document.createElement('div');tools.className='mk-tools';
     const tb=(ic,txt,title,fn)=>{const b=document.createElement('button');b.type='button';b.className='mk-btn';b.title=title;b.innerHTML=`<span class="ic">${ic}</span><span class="tx">${txt}</span>`;b.addEventListener('click',fn);tools.appendChild(b);return b;};
@@ -1221,7 +1290,7 @@ class MordokuPuzzle extends GridPuzzle{
     this.hintBtn=tb('💡','Tipp','Einen Tipp holen',()=>document.getElementById('btnHint').click());
     this.noteBtn=tb('✎','Notiz','Notizen ein/aus: mögliche Personen klein ins Feld schreiben',()=>{document.getElementById('btnNotes').click();this.refresh();});
     this.autoBtn=tb('✕✕','Auto-Kreuze','Automatische Kreuze in Zeile und Spalte ein/aus',()=>{this.autoOn=!this.autoOn;this.refresh();});
-    root.appendChild(tools);
+    left.appendChild(tools);
     const leg=document.createElement('div');leg.className='mk-legend';
     let lh='';
     for(let r=0;r<L.R;r++)lh+=`<span class="mk-sw fl-${r%8}">${MK_ROOMS[L.rooms[r]].n}</span>`;
@@ -1231,7 +1300,7 @@ class MordokuPuzzle extends GridPuzzle{
     if(L.walk.includes(0))w.push(`<span class="mk-it"><span class="mk-ico">${MK_ICON.Stuhl}</span>Stuhl</span>`);
     if(L.walk.includes(1))w.push('<span class="mk-it"><span class="mk-rug mk-mini"></span>Teppich</span>');
     if(w.length)lh+='<span class="mk-lt">Begehbar:</span>'+w.join('');
-    leg.innerHTML=lh;root.appendChild(leg);
+    leg.innerHTML=lh;right.appendChild(leg);
     /* Verdächtige als Polaroid-Karten */
     const sheet=document.createElement('div');sheet.className='mk-sheet';
     sheet.innerHTML='<h3>Verdächtige</h3><p class="mk-note">Alle Aussagen sind wahr. Aussage antippen = abhaken.</p>';
@@ -1257,9 +1326,9 @@ class MordokuPuzzle extends GridPuzzle{
       if(!any){const li=document.createElement('li');li.className='fix none';li.textContent='macht keine Angaben.';ul.appendChild(li);}
       box.appendChild(ul);row.appendChild(box);rows.appendChild(row);
     }
-    sheet.appendChild(rows);root.appendChild(sheet);
+    sheet.appendChild(rows);right.appendChild(sheet);
     /* Anklage */
-    const acc=document.createElement('div');acc.className='mk-acc';root.appendChild(acc);
+    const acc=document.createElement('div');acc.className='mk-acc';right.appendChild(acc);
     const pr=document.createElement('p');pr.className='mk-printq';pr.textContent='Wer war es? ______________________';root.appendChild(pr);
     stage.appendChild(root);
     pad.className='';pad.removeAttribute('style');pad.innerHTML='';
@@ -1300,6 +1369,9 @@ class MordokuPuzzle extends GridPuzzle{
       const b=document.createElement('button');b.type='button';b.innerHTML=this.av(p,'xs')+' '+this.names[p];
       b.addEventListener('click',()=>this.accuse(p));r2.appendChild(b);this.susBtns.push(b);
     }
+    this.subBtn=document.createElement('button');this.subBtn.type='button';this.subBtn.className='mk-btn mk-submit';this.subBtn.textContent='📥 Abgeben';
+    this.subBtn.addEventListener('click',()=>document.getElementById('btnSubmit').click());
+    pad.appendChild(this.subBtn);
   }
   afterRefresh(){
     this.pop=-1;
@@ -1318,6 +1390,7 @@ class MordokuPuzzle extends GridPuzzle{
     const hb=document.getElementById('btnHint');
     if(!this.hintBtn||!hb)return;
     this.hintBtn.disabled=hb.disabled;
+    const sb=document.getElementById('btnSubmit');if(this.subBtn)this.subBtn.disabled=sb.disabled;
     this.hintBtn.querySelector('.tx').textContent=hb.textContent.replace('💡','').trim();
   }
   accuse(p){

@@ -366,6 +366,30 @@ details .mk-ico{width:1.25em;height:1.25em;vertical-align:-.3em}
   .mk-printq{grid-column:1/-1;display:block;margin:.3cm 0 0;font-size:.95rem;font-weight:800}
 }
 
+/* ===== Auswertung & Herleitung ===== */
+.mk-ex{margin-top:14px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.mk-ex .btn{font-weight:800}
+.mk-exhint{font-size:.82rem;color:#6b6460}
+.mk-exov{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:12px}
+.mk-exc{background:#fffdf7;border:3px solid #231f20;border-radius:16px;max-width:720px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:6px 6px 0 #231f20}
+.mk-exh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px dashed #cfc7b4;font-size:1.1rem}
+.mk-exx{border:2px solid #231f20;background:#fff;border-radius:10px;font-size:1.1rem;width:40px;height:40px;cursor:pointer;font-weight:800}
+.mk-exb{overflow:auto;padding:4px 18px 18px;line-height:1.45;-webkit-overflow-scrolling:touch}
+.mk-exb h3{margin:16px 0 6px;font-size:1.08rem}
+.mk-exl,.mk-exs{padding-left:20px;margin:4px 0 8px}
+.mk-exs>li{margin:0 0 12px;list-style:decimal}
+.mk-exs ul{margin:2px 0 4px;padding-left:18px;font-size:.92rem}
+.mk-st{margin:3px 0}
+.mk-why{margin:2px 0 0;font-size:.9rem;color:#4a4440}
+.mk-note2{font-size:.9rem;color:#4a4440}
+.mk-ok{font-weight:800;color:#15803d}
+.mk-chip{display:inline-block;font-size:.72rem;font-weight:800;border:2px solid #231f20;border-radius:999px;padding:1px 9px;margin-right:6px;background:#e8f5e0}
+.mk-chip.t2{background:#dcecf8}.mk-chip.t3{background:#fbf4bd}.mk-chip.t4{background:#f8dfeb}.mk-chip.t5{background:#e8e2f7}
+.mk-softdlg{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px}
+.mk-softdlg>div{background:#fffdf7;border:3px solid #231f20;border-radius:16px;padding:18px;max-width:420px;box-shadow:6px 6px 0 #231f20}
+.mk-softdlg .row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+@media print{.mk-ex,.mk-exov,.mk-softdlg{display:none!important}}
+
 
 .setup-ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:260px;padding:28px 18px;text-align:center;border:2px dashed var(--line,#cbd5e1);border-radius:16px;background:#f8fafc;color:#334155}
 .setup-ph .big{font-size:40px;line-height:1}
@@ -454,6 +478,7 @@ body:not(.setup-mode) .right>.card:first-child{display:none}
     <p id="winText"></p>
     <p id="winTip" style="font-size:.9rem;color:var(--muted)">Tipp: Mach einen Screenshot für dein Lernjournal.</p>
     <button class="btn primary" id="btnWinNew" style="margin-top:10px">Nächstes Rätsel</button>
+    <button class="btn" id="btnWinExplain" style="margin-top:10px;display:none">🔍 Lösung &amp; Herleitung ansehen</button>
     <button class="btn" id="btnWinClose" style="margin-top:10px">Schliessen</button>
   </div>
 </div>
@@ -1329,6 +1354,10 @@ class MordokuPuzzle extends GridPuzzle{
     sheet.appendChild(rows);right.appendChild(sheet);
     /* Anklage */
     const acc=document.createElement('div');acc.className='mk-acc';right.appendChild(acc);
+    const ex=document.createElement('div');ex.className='mk-ex';
+    ex.innerHTML='<button type="button" class="btn" id="mkExBtn">🔍 Lösung &amp; Herleitung</button><span class="mk-exhint">Zeigt die Lösung, erklärt den Weg dorthin und was bei dir nicht stimmt.</span>';
+    ex.querySelector('button').addEventListener('click',()=>this.askExplain());
+    right.appendChild(ex);
     const pr=document.createElement('p');pr.className='mk-printq';pr.textContent='Wer war es? ______________________';root.appendChild(pr);
     stage.appendChild(root);
     pad.className='';pad.removeAttribute('style');pad.innerHTML='';
@@ -1437,7 +1466,9 @@ class MordokuPuzzle extends GridPuzzle{
     return n===this.n&&this.suspect>=0;
   }
   solved(){return this.cur.every((v,k)=>v===this.sol[k])&&this.suspect===this.mur;}
+  snapUser(){if(!this.snapCur){this.snapCur=this.cur.slice();this.snapSus=this.suspect;}}
   lock(){
+    this.snapUser();
     super.lock();
     this.mark[this.cur.length]=this.suspect===this.mur?0:2;
     this.refresh();
@@ -1449,6 +1480,7 @@ class MordokuPuzzle extends GridPuzzle{
     this.refresh();
   }
   reveal(){
+    this.snapUser();
     const C=this.cur.length;
     for(let i=0;i<C;i++){
       this.mark[i]=0;
@@ -1483,6 +1515,119 @@ class MordokuPuzzle extends GridPuzzle{
     this.afterSet(c,pick+1);
     this.sel=c;this.refresh();
     return `Tipp (gelb): ${this.names[pick]} gehört auf Feld ${mkCoord(this.n,c)}. ${MK_TIPS[tier]}`;
+  }
+
+  /* ----- Auswertung & Herleitung (erst auf Wunsch, nach Abgabe oder Lösung) ----- */
+  who(cl){return cl.t==='count'?'':this.names[cl.flip?cl.b:cl.a];}
+  clueLine(cl){const w=this.who(cl);return w?`<b>${w}:</b> «${cl.text}»`:`«${cl.text}»`;}
+  diagnose(){
+    const P=this.n,N=this.n,L=this.L,sc=this.snapCur||this.cur,upos=new Array(P).fill(-1);
+    for(let c=0;c<sc.length;c++)if(sc[c])upos[sc[c]-1]=c;
+    const nm=p=>this.names[p],xy=c=>mkCoord(N,c);
+    const wrong=[],miss=[];
+    for(let p=0;p<P;p++){if(upos[p]<0)miss.push(p);else if(upos[p]!==this.pos[p])wrong.push(p);}
+    const viol=[];                                   // verletzte Regeln/Aussagen
+    for(let p=0;p<P;p++){if(upos[p]>=0&&L.blk[upos[p]]>=0)viol.push(`<b>${nm(p)}</b> steht bei dir auf ${xy(upos[p])} – dort ist ein Möbelstück, auf dem niemand stehen kann.`);}
+    for(let a=0;a<P;a++)for(let b=a+1;b<P;b++){
+      if(upos[a]<0||upos[b]<0)continue;
+      if(((upos[a]/N)|0)===((upos[b]/N)|0))viol.push(`<b>${nm(a)}</b> (${xy(upos[a])}) und <b>${nm(b)}</b> (${xy(upos[b])}) stehen beide in <b>Zeile ${((upos[a]/N)|0)+1}</b> – pro Zeile gibt es nur eine Person.`);
+      if(upos[a]%N===upos[b]%N)viol.push(`<b>${nm(a)}</b> (${xy(upos[a])}) und <b>${nm(b)}</b> (${xy(upos[b])}) stehen beide in <b>Spalte ${MK_COLS[upos[a]%N]}</b> – pro Spalte gibt es nur eine Person.`);
+    }
+    const all=miss.length===0,inR=new Array(L.R).fill(0);
+    if(all)for(const c of upos)inR[L.room[c]]++;
+    for(const cl of this.clues){
+      let bad=false;
+      if(MK_UN[cl.t]){if(upos[cl.a]>=0&&!mkUnary(L,cl,upos[cl.a]))bad=true;}
+      else if(cl.t==='count'){if(all&&inR[cl.r]!==cl.k)bad=true;}
+      else if(cl.t==='alone'){if(all){const v=inR[L.room[upos[cl.a]]]===1;bad=cl.neg?v:!v;}}
+      else if(upos[cl.a]>=0&&upos[cl.b]>=0){
+        if(!mkRel(L,cl,upos[cl.a],upos[cl.b]))bad=true;
+        else if(cl.t==='pair'&&all&&inR[L.room[upos[cl.a]]]!==2)bad=true;
+      }
+      if(!bad)continue;
+      const ps=cl.t==='count'?'':(MK_UN[cl.t]||cl.t==='alone'?` (bei dir auf ${xy(upos[cl.a])})`:` (bei dir: ${nm(cl.a)} auf ${xy(upos[cl.a])}, ${nm(cl.b)} auf ${xy(upos[cl.b])})`);
+      viol.push(`Aussage nicht erfüllt: ${this.clueLine(cl)}${ps}`);
+    }
+    if(all){const v=this.vic;if(inR[L.room[upos[v]]]!==2)viol.push(`<b>Opfer-Regel:</b> ${nm(v)} muss mit <b>genau einer</b> weiteren Person im selben Raum sein – bei dir ist es ${inR[L.room[upos[v]]]-1===0?'niemand':(inR[L.room[upos[v]]]-1)+' Personen'}.`);}
+    return {upos,wrong,miss,viol,sus:this.snapSus!==undefined?this.snapSus:this.suspect};
+  }
+  derive(){
+    const P=this.n,steps=[],fixed=new Array(P).fill(-1);
+    let guard=0;
+    while(fixed.some(f=>f<0)&&guard++<P+2){
+      const open=[];for(let p=0;p<P;p++)if(fixed[p]<0)open.push(p);
+      let got=[],tier=0;
+      for(let t=1;t<=5&&!got.length;t++){
+        const st=mkState(this.L,P,this.clues,this.vic,fixed);
+        mkRun(st,t);
+        if(st.bad)break;
+        got=open.filter(p=>mkOne(st,p)===this.pos[p]);
+        if(got.length)tier=t;
+      }
+      if(!got.length){got=open.slice();tier=5;}
+      for(const p of got)fixed[p]=this.pos[p];
+      steps.push({ps:got,tier});
+    }
+    return steps;
+  }
+  explainHTML(){
+    const N=this.n,L=this.L,xy=c=>mkCoord(N,c),nm=p=>this.names[p];
+    const d=this.diagnose(),steps=this.derive();
+    const WHY=['','Aus den Aussagen und der Regel «eine Person pro Zeile und Spalte» bleibt nur dieses Feld übrig.',
+      'Wenn man schaut, wer in diese Zeile oder Spalte überhaupt noch passt, bleibt nur sie bzw. er übrig.',
+      'Hier hilft die Kombination mit einer Aussage über zwei Personen (gleicher Raum, weiter oben/links).',
+      'Hier zählt man Personen in Räumen (Opfer-Regel, «allein», «genau …»), bis nur ein Feld möglich ist.',
+      'Hier hilft nur eine Annahme: Man probiert ein Feld aus, folgert weiter und findet einen Widerspruch – also ist es ausgeschlossen.'];
+    let h='';
+    /* A: Auswertung */
+    h+='<h3>1 · Was stimmt bei deiner Lösung nicht?</h3>';
+    const sus=d.sus,okSus=sus===this.mur;
+    if(!d.wrong.length&&!d.miss.length&&okSus)h+='<p class="mk-ok">Alles richtig – Aufstellung und Täter stimmen. 🎉</p>';
+    else{
+      if(d.miss.length)h+=`<p>Nicht aufgestellt: ${d.miss.map(p=>`<b>${nm(p)}</b>`).join(', ')}.</p>`;
+      if(d.wrong.length){
+        h+='<p>Auf dem falschen Feld:</p><ul class="mk-exl">'+d.wrong.map(p=>`<li><b>${nm(p)}</b>: du hattest ${xy(d.upos[p])}, richtig ist <b>${xy(this.pos[p])}</b>.</li>`).join('')+'</ul>';
+      } else if(!d.miss.length)h+='<p>Alle Personen stehen auf dem richtigen Feld.</p>';
+      if(d.viol.length)h+='<p><b>Das widerspricht den Regeln/Aussagen:</b></p><ul class="mk-exl">'+d.viol.slice(0,10).map(v=>`<li>${v}</li>`).join('')+(d.viol.length>10?`<li>… und ${d.viol.length-10} weitere.</li>`:'')+'</ul>';
+      else if(d.wrong.length)h+='<p class="mk-note2">Deine Aufstellung widerspricht für sich genommen keiner einzelnen Aussage – die Fehler zeigen sich erst im Zusammenspiel. Die Herleitung unten zeigt, wie die richtige Aufstellung zwingend entsteht.</p>';
+      if(sus<0)h+='<p>Du hast niemanden angeklagt.</p>';
+      else if(!okSus)h+=`<p><b>Täter-Wahl falsch:</b> du hast <b>${nm(sus)}</b> angeklagt, es war <b>${nm(this.mur)}</b>.</p>`;
+      else h+=`<p>Die Täter-Wahl (<b>${nm(this.mur)}</b>) stimmt.</p>`;
+    }
+    /* B: Herleitung */
+    h+='<h3>2 · So kommt man zur Lösung</h3><p class="mk-note2">Schritt für Schritt: Jeder Schritt benutzt nur das, was vorher schon feststand.</p><ol class="mk-exs">';
+    steps.forEach((s,i)=>{
+      const lbl=['','Leicht','Zeile/Spalte','Zwei Personen','Räume zählen','Annahme testen'][s.tier];
+      h+=`<li><span class="mk-chip t${s.tier}">${lbl}</span>`;
+      h+=s.ps.map(p=>{
+        const cs=this.clues.filter(cl=>cl.t!=='count'&&(cl.a===p||cl.b===p));
+        return `<div class="mk-st"><b>${nm(p)} → ${xy(this.pos[p])}</b>${cs.length?'<ul>'+cs.slice(0,4).map(cl=>`<li>${this.clueLine(cl)}</li>`).join('')+'</ul>':''}</div>`;
+      }).join('');
+      h+=`<p class="mk-why">${WHY[s.tier]}`;
+      if(s.tier>=4){const rc=this.clues.filter(cl=>cl.t==='count'||cl.t==='alone');if(rc.length)h+=' Wichtig dafür: '+rc.slice(0,3).map(cl=>this.clueLine(cl)).join(' ');}
+      h+='</p></li>';
+    });
+    h+='</ol>';
+    /* C: Täter */
+    const vr=L.room[this.pos[this.vic]],inRoom=[];
+    for(let p=0;p<this.n;p++)if(p!==this.vic&&L.room[this.pos[p]]===vr)inRoom.push(p);
+    h+=`<h3>3 · Wer war es?</h3><p><b>${nm(this.vic)}</b> steht auf ${xy(this.pos[this.vic])} ${MK_ROOMS[L.rooms[vr]].in}. Dort ist genau eine weitere Person: <b>${inRoom.map(nm).join(', ')}</b>. Das ist ${this.names[this.mur]===nm(inRoom[0])?(this.people[this.mur].g==='f'?'die Täterin':'der Täter'):'der Täter'}.</p>`;
+    return h;
+  }
+  openExplain(){
+    if(document.getElementById('mkEx'))document.getElementById('mkEx').remove();
+    const ov=document.createElement('div');ov.id='mkEx';ov.className='mk-exov';ov.setAttribute('role','dialog');ov.setAttribute('aria-label','Auswertung und Herleitung');
+    ov.innerHTML=`<div class="mk-exc"><div class="mk-exh"><b>🔍 Auswertung &amp; Herleitung</b><button type="button" class="mk-exx" aria-label="Schliessen">✕</button></div><div class="mk-exb">${this.explainHTML()}</div></div>`;
+    const close=()=>{ov.remove();document.removeEventListener('keydown',esc,true);};
+    const esc=e=>{if(e.key==='Escape'){e.stopPropagation();close();}};
+    ov.addEventListener('click',e=>{if(e.target===ov)close();});
+    ov.querySelector('.mk-exx').addEventListener('click',close);
+    document.addEventListener('keydown',esc,true);
+    document.body.appendChild(ov);ov.querySelector('.mk-exx').focus();
+  }
+  askExplain(){
+    if(this.done||this.locked){this.openExplain();return;}
+    showSolution(()=>this.openExplain());
   }
   winInfo(){return `Überführt: <b>${this.names[this.mur]}</b>`;}
 }
@@ -1685,11 +1830,26 @@ function resetGame(){
   if(!puz||puz.locked||!confirm('Alle eigenen Eingaben löschen und neu beginnen? Bereits benutzte Tipps bleiben verbraucht.'))return;
   puz.reset();startTimer();hideMsg();updateStats();refreshTools();
 }
-function showSolution(){
+/* In-Page-Rückfrage (confirm() wird in Frames/auf Tablets teils blockiert) */
+function softAsk(text,yesLabel,onYes){
+  const o=document.createElement('div');o.className='mk-softdlg';
+  o.innerHTML='<div role="alertdialog" aria-modal="true"><p style="margin:0;font-weight:700;line-height:1.4"></p><div class="row"><button type="button" class="btn" data-y="1"></button><button type="button" class="btn" data-n="1">Abbrechen</button></div></div>';
+  o.querySelector('p').textContent=text;o.querySelector('[data-y]').textContent=yesLabel;
+  const close=()=>o.remove();
+  o.querySelector('[data-y]').addEventListener('click',()=>{close();onYes();});
+  o.querySelector('[data-n]').addEventListener('click',close);
+  o.addEventListener('click',e=>{if(e.target===o)close();});
+  document.body.appendChild(o);o.querySelector('[data-y]').focus();
+}
+function showSolution(after){
   if(!puz)return;
-  if(!confirm(`Wirklich die ganze Lösung anzeigen? Das ${def.name}-Rätsel gilt dann als nicht gelöst.`))return;
-  solUsed=true;puz.reveal();stopTimer();refreshTools();
-  showMsg('Lösung angezeigt: grün = du hattest es richtig, rot = war falsch, gelb = war leer.','info');
+  const go=()=>{
+    solUsed=true;puz.reveal();stopTimer();refreshTools();
+    showMsg('Lösung angezeigt: grün = du hattest es richtig, rot = war falsch, gelb = war leer. Mit «Lösung & Herleitung» siehst du den Weg und deine Fehler.','info');
+    if(typeof after==='function')after();
+  };
+  if(puz.done||puz.locked){go();return;}
+  softAsk(`Wirklich die ganze Lösung anzeigen? Das ${def.name}-Rätsel gilt dann als nicht gelöst.`,'Lösung zeigen',go);
 }
 /* Werkzeuge sperren/freigeben (nach einem vollständig falsch gelösten Rätsel bleibt nur «Lösung zeigen» / «Neues Rätsel») */
 function setLocked(on){
@@ -1722,12 +1882,12 @@ function fail(){
   $('winTitle').textContent='✖ Leider nicht richtig';
   $('winText').innerHTML=`${def.name} · Niveau: <b>${tagOf(settings.size,settings.lvl)}</b><br>Zeit: <b>${fmt(elapsed())}</b> · Tipps: <b>${tips} von ${tipLimit()}</b><br>Du hast das Rätsel abgegeben, aber <b>${bad===1?'ein Feld ist':bad+' Felder sind'} falsch</b> (rot markiert).<br>Abgegebene Rätsel können nicht mehr korrigiert werden – starte ein <b>neues Rätsel</b> und versuche es nochmals.`;
   $('winTip').style.display='none';
-  $('btnWinNew').textContent='Neues Rätsel';$('btnWinClose').textContent='Fehler ansehen';
+  $('btnWinNew').textContent='Neues Rätsel';$('btnWinClose').textContent='Fehler ansehen';$('btnWinExplain').style.display=puz.askExplain?'':'none';
   $('overlay').classList.add('show');
   showMsg('Abgegeben – nicht richtig gelöst: Die roten Felder sind falsch. Korrigieren ist nicht mehr möglich – starte ein neues Rätsel.','warn');
 }
 function win(){
-  $('winTip').style.display='';$('btnWinNew').textContent='Nächstes Rätsel';$('btnWinClose').textContent='Schliessen';
+  $('btnWinExplain').style.display='none';$('winTip').style.display='';$('btnWinNew').textContent='Nächstes Rätsel';$('btnWinClose').textContent='Schliessen';
   puz.finish();stopTimer();
   $('winText').innerHTML=`${def.name} · Niveau: <b>${tagOf(settings.size,settings.lvl)}</b><br>Zeit: <b>${fmt(elapsed())}</b><br>${puz.winInfo?puz.winInfo()+'<br>':''}Tipps: <b>${tips} von ${tipLimit()}</b>`;
   if(solUsed){$('winTitle').textContent='⚠ Gelöst – aber mit Lösung';$('winText').innerHTML+='<br><b style="color:var(--bad)">Die Lösung wurde angezeigt – das zählt nicht als selbst gelöst.</b>';}
@@ -1756,6 +1916,7 @@ $('btnPrint').addEventListener('click',()=>{if(puz){puz.clearSelection();}window
 $('btnNotes').addEventListener('click',toggleNotes);
 $('btnWinNew').addEventListener('click',()=>{$('overlay').classList.remove('show');showSetup();});
 $('btnWinClose').addEventListener('click',()=>$('overlay').classList.remove('show'));
+$('btnWinExplain').addEventListener('click',()=>{$('overlay').classList.remove('show');if(puz&&puz.askExplain)puz.askExplain();});
 $('autoCheck').addEventListener('change',()=>{if(puz)puz.applyAutoCheck($('autoCheck').checked);});
 
 document.addEventListener('keydown',e=>{

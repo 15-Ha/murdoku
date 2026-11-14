@@ -1,0 +1,1731 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mordoku – Rätsel-Trainer</title>
+<style>
+:root{
+  /* Farben nach flade.ch: Weiss als Grund, Anthrazit für Text, Limettengrün #aecb35 als Akzent */
+  --bg:#ffffff; --card:#f8faf0; --ink:#231f20; --muted:#5f6657;
+  --line:#d3dbbd; --thick:#231f20; --given:#231f20; --user:#46640f;
+  --sel:#dbe9a0; --peer:#f4f8e2; --same:#e7f0bd;
+  --ok:#15803d; --okbg:#dcfce7; --bad:#b91c1c; --badbg:#fee2e2;
+  --hint:#92400e; --hintbg:#fef3c7;
+  --accent:#aecb35; --accent-bg:#f1f7d9; --accent-dark:#5d7410; --lime:#aecb35;
+  --water:#e6f1f5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Calibri,"Segoe UI",Arial,sans-serif;}
+.wrap{max-width:980px;margin:0 auto;padding:16px;}
+
+/* Kopf */
+.top{display:flex;align-items:center;gap:16px;margin:2px 0 14px;padding-bottom:12px;border-bottom:3px solid var(--lime)}
+.logo{height:58px;width:auto;display:block;flex:none}
+.titlebox h1{margin:0;font-size:1.7rem;line-height:1.15}
+.sub{color:var(--muted);margin:2px 0 0}
+/* Layout */
+.layout{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.left{flex:1 1 420px;min-width:280px}
+.right{flex:0 1 300px;min-width:260px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--line);box-shadow:0 1px 3px rgba(35,31,32,.06)}
+.card h2{font-size:1.05rem;margin:0 0 8px}
+label.small{font-size:.9rem;color:var(--muted);display:block;margin-bottom:4px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.seg button{flex:1 1 auto;border:2px solid var(--line);background:#fff;border-radius:8px;padding:7px 8px;font:inherit;cursor:pointer;color:var(--ink)}
+.seg button.on{border-color:var(--accent);background:var(--accent-bg);font-weight:bold}
+.lvldesc{font-size:.9rem;color:var(--muted);min-height:2.4em;margin:0 0 10px}
+.btn{border:none;border-radius:8px;padding:9px 12px;font:inherit;cursor:pointer;background:#e5e7eb;color:var(--ink)}
+.btn:hover{filter:brightness(.95)}
+.btn.primary{background:var(--accent);color:var(--ink);font-weight:bold}
+.btn.primary:hover{background:#9db92d}
+.btn.on{background:var(--accent-dark);color:#fff}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btns .full{grid-column:1/-1}
+.stats{display:flex;justify-content:space-between;font-size:.95rem;margin-bottom:8px;gap:8px;flex-wrap:wrap}
+.stats b{font-variant-numeric:tabular-nums}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
+
+/* Spielfeld (gemeinsam) */
+.board{
+  width:min(100%,520px); aspect-ratio:1/1; margin:0 auto;
+  display:grid; grid-template-columns:repeat(var(--cols,var(--n)),1fr); grid-template-rows:repeat(var(--cols,var(--n)),1fr);
+  border:3px solid var(--thick); background:#fff; user-select:none; touch-action:manipulation;
+}
+.cell{
+  display:flex;align-items:center;justify-content:center;position:relative;
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  font-size:calc(min(100vw - 40px,520px) / var(--n) * .55);
+  cursor:pointer;color:var(--user);
+}
+.cell.tr{border-right:3px solid var(--thick)}
+.cell.tb{border-bottom:3px solid var(--thick)}
+.cell.lastc{border-right:none}
+.cell.lastr{border-bottom:none}
+.cell.water{background:var(--water)}
+.cell.peer{background:var(--peer)}
+.cell.same{background:var(--same)}
+.cell.sel{background:var(--sel)}
+.cell.given{color:var(--given);font-weight:bold}
+.cell.hint{color:var(--hint);background:var(--hintbg)}
+.cell.ok{color:var(--ok);background:var(--okbg)}
+.cell.bad{color:var(--bad);background:var(--badbg)}
+.cell.sel.ok,.cell.sel.bad,.cell.sel.hint{outline:3px solid var(--accent);outline-offset:-3px}
+.cell.water.ok,.cell.water.bad,.cell.water.hint{outline:0}
+.notes{position:absolute;inset:2px;display:grid;font-size:calc(min(100vw - 40px,520px) / var(--n) * .22);color:#64748b;line-height:1;font-weight:normal}
+.notes span{display:flex;align-items:center;justify-content:center}
+
+/* Eingabe */
+.pad{display:grid;gap:6px;margin:12px auto 0;width:min(100%,520px)}
+.pad button{font:inherit;font-size:1.4rem;padding:10px 0;border-radius:8px;border:2px solid var(--line);background:#fff;cursor:pointer;color:var(--ink)}
+.pad button.del{font-size:1rem}
+.pad button.done{opacity:.35}
+.padhelp{margin:12px auto 0;width:min(100%,520px);font-size:.95rem;color:var(--muted);text-align:center}
+.msg{margin:12px auto 0;width:min(100%,520px);padding:10px 12px;border-radius:8px;display:none;font-size:1rem}
+.msg.show{display:block}
+.msg.info{background:#e0f2fe;color:#075985}
+.msg.good{background:var(--okbg);color:#14532d}
+.msg.warn{background:var(--badbg);color:#7f1d1d}
+.toggle{display:flex;gap:8px;align-items:center;font-size:.95rem;margin-top:6px;cursor:pointer}
+details summary{cursor:pointer;font-weight:bold}
+details ul{padding-left:18px;margin:8px 0 0}
+details li{margin-bottom:4px}
+.legend{display:flex;flex-wrap:wrap;gap:6px;font-size:.85rem;margin-top:8px}
+.legend span{padding:2px 6px;border-radius:5px}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.overlay.show{display:flex}
+.dialog{background:#fff;border-radius:14px;padding:22px;max-width:380px;width:100%;text-align:center}
+.dialog h3{margin:0 0 8px;font-size:1.5rem}
+.dialog p{margin:6px 0}
+.loading{opacity:.4;pointer-events:none}
+.printhead{display:none}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.pad button:disabled{opacity:.35;cursor:not-allowed}
+.toggle.off{opacity:.5;cursor:not-allowed}
+
+@media (max-width:520px){
+  .logo{height:46px}
+  .titlebox h1{font-size:1.4rem}
+}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff}
+  .right,.pad,.padhelp,.msg,.sub,.titlebox,.stats,.overlay{display:none!important}
+  .top{margin:0 0 8px}
+  .logo{height:1.3cm}
+  .printhead{display:block;margin-bottom:12px;font-size:1.2rem}
+  .board{width:16cm}
+  .cell{font-size:calc(16cm / var(--n) * .55)}
+  .cell.peer,.cell.same,.cell.sel{background:#fff}
+}
+
+/* Eingebettet in die Plattform: Kopf wird von der Plattform gezeigt */
+body.embed .top{display:none}
+body.embed .wrap{padding-top:0}
+@media print{body.embed .top{display:flex}}
+
+/* Kennzeichnung «Lösung angezeigt» */
+#stStatus.bad{color:var(--bad)}
+#stStatus.good{color:var(--ok)}
+.solbanner{display:none;background:#b91c1c;color:#fff;font-weight:bold;text-align:center;padding:8px 10px;border-radius:8px;margin-bottom:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#stage{position:relative}
+#stage.sol{outline:4px solid #b91c1c;outline-offset:2px}
+#stage.sol::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;background:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='170'><text x='130' y='90' text-anchor='middle' font-family='Arial' font-size='22' font-weight='bold' fill='%23b91c1c' fill-opacity='.38' transform='rotate(-25 130 85)'>LÖSUNG ANGEZEIGT</text></svg>") repeat;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+/* Mordoku – Comic-Look: dicke Umrisse, harte Schatten, Polaroid-Karten, kräftige Farben */
+.mk{--mkf:"Inter","Segoe UI",system-ui,"Helvetica Neue",Arial,sans-serif;--mks:"Segoe Print","Bradley Hand","Marker Felt","Comic Sans MS",cursive;
+  --k:#17141c;--kc:#fffaf0;--yel:#ffd23f;--pink:#ff5c93;--mint:#3de0c0;--vio:#7a5cff;--wall:#17141c;--stamp:#e02a5e;
+  font-family:var(--mkf);color:var(--k);position:relative}
+.mk-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 8px}
+.mk-tab{display:inline-block;background:var(--yel);border:3px solid var(--k);border-radius:999px;padding:2px 13px;font-weight:800;font-size:.85rem;box-shadow:3px 3px 0 var(--k);transform:rotate(-2deg)}
+.mk-btn,.mk-help{font:inherit;font-weight:800;color:var(--k);background:#fff;border:3px solid var(--k);border-radius:14px;box-shadow:0 4px 0 var(--k);cursor:pointer;padding:6px 12px;transition:transform .08s,box-shadow .08s}
+.mk-btn:hover:not(:disabled),.mk-help:hover{background:#fff6d1}
+.mk-btn:active:not(:disabled),.mk-help:active{transform:translateY(3px);box-shadow:0 1px 0 var(--k)}
+.mk-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:0 2px 0 var(--k)}
+.mk-btn:focus-visible,.mk-help:focus-visible,.mk-set button:focus-visible,.mk-padrow button:focus-visible{outline:3px solid var(--vio);outline-offset:2px}
+.mk-help{padding:3px 12px;font-size:.85rem;border-radius:999px}
+.mk-file{margin:0 0 12px}
+.mk-place{font-size:1.75rem;line-height:1.1;margin:0 0 6px;font-weight:900;letter-spacing:-.01em}
+.mk-vline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;font-size:1.05rem}
+.mk-stamp{display:inline-block;font-weight:900;font-size:.78rem;color:#fff;background:var(--stamp);border:2.5px solid var(--k);border-radius:8px;padding:0 8px;transform:rotate(-4deg);letter-spacing:.06em}
+.mk-task{margin:0;line-height:1.45;background:var(--kc);border:3px solid var(--k);border-left:9px solid var(--yel);border-radius:12px;padding:8px 12px;box-shadow:4px 4px 0 var(--k);max-width:64ch}
+/* Porträts (eigene Zeichnungen) */
+.mk-av{display:inline-block;flex:none;width:44px;height:44px;border:3px solid var(--k);border-radius:12px;overflow:hidden;background:color-mix(in srgb,var(--c) 45%,#fff);vertical-align:middle}
+.mk-av.xs{width:30px;height:30px;border-width:2.5px;border-radius:9px}
+.mk-av.sm{width:40px;height:40px}
+.mk-av svg{display:block;width:100%;height:100%}
+/* Plan */
+.mk-plan{display:grid;grid-template-columns:1.6em minmax(0,1fr);grid-template-rows:1.6em auto;gap:3px;width:min(100%,560px);margin:0 auto}
+.mk-nord{}
+.mk-colh,.mk-rowh{display:grid;text-align:center;align-items:center;font-weight:900;font-size:.9rem;color:var(--k)}
+.mk-colh{grid-template-columns:repeat(var(--n),1fr)}
+.mk-rowh{grid-template-rows:repeat(var(--n),1fr)}
+.mk-plan .board{width:100%;margin:0;border:5px solid var(--wall);border-radius:6px;box-shadow:9px 9px 0 #cfc8e4}
+.g-mordoku .cell{border-right:1px solid rgba(23,20,28,.18);border-bottom:1px solid rgba(23,20,28,.18);overflow:visible}
+.g-mordoku .cell.tr{border-right:4px solid var(--wall)}
+.g-mordoku .cell.tb{border-bottom:4px solid var(--wall)}
+.g-mordoku .cell.lastc{border-right:none}
+.g-mordoku .cell.lastr{border-bottom:none}
+.g-mordoku .cell.mk-blk{cursor:default}
+/* Bodenbeläge (alles in Prozent, damit die Muster an den Feldgrenzen aufgehen) */
+.mk .fl-0{background:linear-gradient(#0000 calc(100% - 1px),rgba(120,78,28,.3) 0) 0 0/100% 25%,linear-gradient(90deg,#0000 calc(100% - 1px),rgba(120,78,28,.18) 0) 0 0/50% 50%,#e9cfa2}
+.mk .fl-1{background:conic-gradient(#d9e1e7 25%,#c5d0d9 0 50%,#d9e1e7 0 75%,#c5d0d9 0) 0 0/50% 50%}
+.mk .fl-2{background:radial-gradient(rgba(58,92,40,.2) 14%,#0000 15%) 0 0/20% 20%,#d2e3c5}
+.mk .fl-3{background:repeating-linear-gradient(45deg,rgba(92,70,156,.13) 0 7%,#0000 7% 14%),#ddd6ef}
+.mk .fl-4{background:linear-gradient(#0000 calc(100% - 1px),rgba(0,0,0,.13) 0) 0 0/100% 50%,linear-gradient(90deg,#0000 calc(100% - 1px),rgba(0,0,0,.13) 0) 0 0/50% 100%,#eae8e2}
+.mk .fl-5{background:linear-gradient(90deg,#0000 calc(100% - 1px),rgba(140,105,20,.3) 0) 0 0/25% 100%,#f0dc97}
+.mk .fl-6{background:linear-gradient(#0000 calc(100% - 1px),rgba(20,110,95,.22) 0) 0 0/100% 33.34%,linear-gradient(90deg,#0000 calc(100% - 1px),rgba(20,110,95,.22) 0) 0 0/33.34% 100%,#cfe9e3}
+.mk .fl-7{background:conic-gradient(from 45deg,#efcdb4 25%,#e4b697 0 50%,#efcdb4 0 75%,#e4b697 0) 0 0/50% 50%}
+.g-mordoku .cell.sel{box-shadow:inset 0 0 0 4px var(--yel),inset 0 0 0 7px var(--k);outline:0}
+.g-mordoku .cell.hint{box-shadow:inset 0 0 0 4px #d97706,inset 0 0 0 99px rgba(254,243,199,.72);outline:0}
+.g-mordoku .cell.ok{box-shadow:inset 0 0 0 4px var(--ok),inset 0 0 0 99px rgba(220,252,231,.72);outline:0}
+.g-mordoku .cell.bad{box-shadow:inset 0 0 0 4px var(--bad),inset 0 0 0 99px rgba(254,226,226,.78);outline:0}
+.mk-room{position:absolute;bottom:2px;left:2px;z-index:3;pointer-events:none;white-space:nowrap;font-weight:900;color:#fff;background:var(--k);line-height:1.3;text-transform:uppercase;letter-spacing:.03em;
+  font-size:clamp(7px,calc(min(100vw - 40px,520px) / var(--n) * .105),11px);border-radius:3px;padding:0 4px}
+.mk-obj,.mk-chair{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.mk-obj svg{width:82%;height:82%;filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.28))}
+.mk-chair svg{width:86%;height:86%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.22))}
+.mk-rug{position:absolute;inset:13% 9%;border-radius:3px;pointer-events:none;background:repeating-linear-gradient(90deg,#a23a2e 0 12%,#b9493b 12% 24%);
+  box-shadow:inset 0 0 0 2px #7c271e,inset 0 0 0 5px #efd8a4,inset 0 0 0 6px #7c271e,0 1px 2px rgba(0,0,0,.25)}
+.mk-rug::before,.mk-rug::after{content:"";position:absolute;top:2px;bottom:2px;width:4px;background:repeating-linear-gradient(#efd8a4 0 2px,#0000 2px 4px)}
+.mk-rug::before{left:-4px}.mk-rug::after{right:-4px}
+.mk-rug.mk-mini,.mk-ico{position:relative;inset:auto;display:inline-block;width:1.5em;height:1.5em;vertical-align:-.4em;flex:none}
+.mk-rug.mk-mini{height:1em;vertical-align:-.15em;margin:0 4px}
+.mk-ico svg{width:100%;height:100%}
+/* Spielsteine und Kreuze */
+.mk-tok{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;width:62%;height:62%;border-radius:50%;color:#fff;font-weight:900;font-size:.72em;line-height:1;text-shadow:0 1px 0 rgba(0,0,0,.4);
+  border:3px solid var(--k);box-shadow:2px 3px 0 var(--k),inset 0 3px 3px rgba(255,255,255,.3)}
+.mk-tok.pop{animation:mkpop .22s ease-out}
+@keyframes mkpop{from{transform:scale(.4)}70%{transform:scale(1.12)}to{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.mk-tok.pop{animation:none}.mk-btn,.mk-help{transition:none}}
+.mk-dot{display:inline-flex;align-items:center;justify-content:center;width:1.55em;height:1.55em;border-radius:50%;color:#fff;font-weight:900;font-size:.82em;line-height:1;flex:none;border:2.5px solid var(--k)}
+.mk-x{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;pointer-events:none;font-weight:900;font-size:.62em;line-height:1;color:var(--k)}
+.mk-x.auto{opacity:.26}
+.mk-notes{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:2px;align-items:center;justify-content:center;padding:0 3px;font-size:.3em;line-height:1;font-weight:900}
+.mk-notes i{font-style:normal;color:#fff;border-radius:50%;width:1.5em;height:1.5em;display:flex;align-items:center;justify-content:center;border:1px solid var(--k)}
+/* Personen und Werkzeuge direkt unter dem Plan */
+.mk-set,.mk-tools,.mk-legend,.mk-pad{width:min(100%,560px);margin-left:auto;margin-right:auto}
+.mk-set{margin-top:16px}
+.mk-padlbl{margin:0 0 7px;font-weight:900;font-size:1rem}
+.mk-padlbl small{font-weight:600;color:#5b5568;font-size:.88rem}
+.mk-padrow{display:flex;flex-wrap:wrap;gap:8px}
+.mk-padrow button{flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;font:inherit;font-weight:800;font-size:.98rem;padding:4px 12px 4px 5px;border-radius:14px;border:3px solid var(--k);background:#fff;cursor:pointer;color:var(--k);white-space:nowrap;box-shadow:0 4px 0 var(--k);transition:transform .08s,box-shadow .08s}
+.mk-padrow button:hover:not(:disabled){background:#fff6d1}
+.mk-padrow button:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--k)}
+.mk-padrow button.used{opacity:.5}
+.mk-padrow button.on{background:var(--pink);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.35)}
+.mk-padrow button.on.ok{background:#35c26a}
+.mk-padrow button.on.bad{background:#e5484d}
+.mk-padrow button:disabled{opacity:.45;cursor:not-allowed}
+.mk-padrow button.on:disabled{opacity:1}
+.mk-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:14px}
+.mk-tools .mk-btn{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 4px 5px;line-height:1.1;font-size:.82rem}
+.mk-tools .ic{font-size:1.45rem;line-height:1.1;font-weight:900}
+.mk-tools .mk-btn.on{background:var(--yel)}
+.mk-tools .mk-btn.on.note{background:var(--mint)}
+.mk-acc{margin-top:20px}
+.mk-acc .mk-padlbl{font-size:1.1rem}
+.mk-legend{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:16px;font-size:.88rem;font-weight:600}
+.mk-legend .mk-sw{padding:2px 9px;border-radius:6px;border:2.5px solid var(--k);font-weight:800;font-size:.78rem;text-transform:uppercase}
+.mk-legend .mk-lt{color:#5b5568;flex-basis:100%;margin-top:2px;font-weight:600}
+.mk-legend .mk-it{display:inline-flex;align-items:center;gap:3px}
+/* Verdächtige: Polaroid-Karten */
+.mk-sheet{margin-top:26px}
+.mk-sheet h3{font-size:1.25rem;font-weight:900;margin:0;text-align:center}
+.mk-note{font-size:.88rem;color:#5b5568;margin:2px 0 14px;text-align:center}
+.mk-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:20px 14px;align-items:start}
+.mk-row{position:relative;display:flex;flex-direction:column;align-items:center;--p:color-mix(in srgb,var(--c) 30%,#fff)}
+.mk-pol{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;background:#fff;border:3px solid var(--k);border-radius:6px;padding:4px 4px 1px;box-shadow:3px 3px 0 var(--k);transform:rotate(var(--r,-1deg))}
+.mk-pol .mk-av{width:74px;height:74px;border:none;border-radius:2px;box-shadow:inset 0 0 0 1.5px rgba(23,20,28,.5)}
+.mk-name{font-family:var(--mks);font-weight:700;font-size:1.02rem;line-height:1.25;padding:0 4px}
+.mk-box{position:relative;width:100%;margin-top:-14px;padding:20px 8px 9px;background:var(--p);border:3px solid var(--k);border-radius:10px;box-shadow:4px 4px 0 var(--k);flex:1}
+.mk-row.vic .mk-box{background:#fff;background-image:repeating-linear-gradient(135deg,#0000 0 9px,rgba(224,42,94,.1) 9px 18px)}
+.mk-row.vic .mk-stamp{position:absolute;top:-6px;right:-8px;z-index:3;font-size:.7rem}
+.mk-box ul{margin:0;padding:0;list-style:none}
+.mk-box li{line-height:1.3;margin:0 0 5px;cursor:pointer;font-size:.95rem;text-align:center;padding:1px 0}
+.mk-box li:last-child{margin-bottom:0}
+.mk-box li.fix{cursor:default}
+.mk-box li.none{opacity:.65;font-style:italic}
+.mk-box li.struck{opacity:.4;text-decoration:line-through}
+.mk-printq{display:none}
+/* Spielanleitung */
+.mk-tut{position:fixed;inset:0;z-index:60;background:rgba(23,20,28,.72);display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto}
+.mk-tc{width:min(100%,430px);max-height:100%;overflow:auto;background:var(--kc);border:4px solid var(--k);border-radius:18px;box-shadow:8px 8px 0 var(--yel);padding:16px 16px 14px;text-align:center;font-family:var(--mkf);color:var(--k)}
+.mk-tc h3{font-size:1.35rem;font-weight:900;margin:6px 0 6px;line-height:1.15}
+.mk-tc p{margin:0 0 10px;line-height:1.45;font-size:1rem}
+.mk-tbadge{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:var(--pink);border:3px solid var(--k);font-size:1.7rem;box-shadow:3px 3px 0 var(--k)}
+.mk-dg{display:grid;grid-template-columns:repeat(var(--c),46px);width:max-content;margin:6px auto 12px;border:4px solid var(--k);border-radius:6px;box-shadow:5px 5px 0 #cfc8e4;background:#fff}
+.mk-dg .dc{position:relative;width:46px;height:46px;display:flex;align-items:center;justify-content:center;border-right:1px solid rgba(23,20,28,.2);border-bottom:1px solid rgba(23,20,28,.2);font-weight:900;font-size:1.25rem;background:#f4f1e8}
+.mk-dg .dc.fl{background:#e4efd9}
+.mk-dg .dc.wr{border-right:5px solid var(--k)}
+.mk-dg .ok{color:#1d9a4f}.mk-dg .no{color:#d6303a}
+.mk-dg .mk-tok{width:70%;height:70%;font-size:.7em}
+.mk-dg .dc.x{background:#fde4e4}
+.mk-dg .dc.y{background:#dcf6e3}
+.mk-dg svg{width:80%;height:80%}
+.mk-dgrow{display:flex;gap:8px;justify-content:center;margin:8px 0 12px}
+.mk-dgrow .mk-av{width:50px;height:50px}
+.mk-tdots{display:flex;gap:7px;justify-content:center;margin:2px 0 12px}
+.mk-tdots i{width:11px;height:11px;border-radius:50%;border:2.5px solid var(--k);background:#fff}
+.mk-tdots i.on{background:var(--yel)}
+.mk-tnav{display:flex;gap:8px;justify-content:space-between}
+.mk-tnav .mk-btn{flex:1}
+.mk-tnav .mk-btn.go{background:var(--yel)}
+.mk-tnav .skip{flex:0 0 auto;background:none;border:none;box-shadow:none;text-decoration:underline;font-weight:700;padding:6px 6px}
+.mk-tl{text-align:left;margin:0 0 6px;padding:0;list-style:none;font-size:.97rem}
+.mk-tl li{margin:0 0 6px;line-height:1.35}
+.mk-tl b{display:inline-block;min-width:1.6em;text-align:center}
+details .mk-ico{width:1.25em;height:1.25em;vertical-align:-.3em}
+@media (max-width:520px){.mk-place{font-size:1.45rem}.mk-padrow{gap:6px}.mk-padrow button{font-size:.9rem;padding-right:9px}.mk-rows{gap:18px 10px}.mk-name{font-size:.96rem}}
+@media (max-width:330px){.mk-rows{grid-template-columns:1fr}}
+@media print{
+  .mk-pad,.mk-acc,.mk-set,.mk-tools,.mk-note,.mk-help,.mk-tut,.mk-x{display:none!important}
+  .left{flex:1 1 100%}
+  .mk-task{box-shadow:none;border-width:2px;border-left-width:6px}
+  .mk-plan{width:12.6cm}
+  .mk-plan .board{box-shadow:none}
+  .g-mordoku .cell{font-size:calc(11.8cm / var(--n) * .55)}
+  .g-mordoku .cell.sel{box-shadow:none}
+  .mk-room{font-size:calc(11.8cm / var(--n) * .12)}
+  .mk-legend{width:100%}
+  .mk-sheet{margin-top:10px}
+  .mk-sheet h3,.mk-sheet .mk-note{break-after:avoid}
+  .mk-rows{grid-template-columns:repeat(3,1fr);gap:14px 10px}
+  .mk-row{break-inside:avoid}
+  .mk-pol,.mk-box,.mk-tab{box-shadow:none}
+  .mk-pol .mk-av{width:56px;height:56px}
+  .mk-box li{cursor:default;font-size:.85rem}
+  .mk-box li.struck{opacity:1;text-decoration:none}
+  .mk-printq{display:block;margin:12px 0 0;font-size:1.1rem;font-family:var(--mkf);font-weight:800}
+}
+
+
+.setup-ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:260px;padding:28px 18px;text-align:center;border:2px dashed var(--line,#cbd5e1);border-radius:16px;background:#f8fafc;color:#334155}
+.setup-ph .big{font-size:40px;line-height:1}
+.setup-ph h3{margin:0;font-size:1.15rem}
+.setup-ph p{margin:0;max-width:34ch;font-size:.95rem}
+.setup-ph .chosen{font-weight:700;color:#0f172a}
+.setup-ph .btn{margin-top:6px;min-width:220px}
+
+body.setup-mode .left,body.setup-mode .right>.card:nth-child(n+2){display:none}
+body.setup-mode .right{flex:1 1 100%;max-width:520px;margin:18px auto 0}
+body.setup-mode .right>.card:first-child{padding:20px}
+body.setup-mode #btnNew{padding:14px;font-size:1.05rem}
+body:not(.setup-mode) .right>.card:first-child{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <img class="logo" src="data:image/png;base64,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" alt="Logo">
+    <div class="titlebox">
+      <h1 id="gameTitle">Rätsel-Trainer</h1>
+      <p class="sub" id="sub"></p>
+    </div>
+  </header>
+
+    <div class="layout">
+    <div class="left">
+      <div class="printhead"><span id="phTitle"></span> &nbsp;&nbsp; Name: ______________________</div>
+      <div class="stats">
+        <span>Niveau: <b id="stLevel">–</b></span>
+        <span>Zeit: <b id="stTime">00:00</b></span>
+        <span>Tipps: <b id="stTips">0</b></span>
+        <span style="display:none">Prüfungen: <b id="stChecks">0</b></span>
+        <span>Status: <b id="stStatus">in Arbeit</b></span>
+      </div>
+      <div id="solBanner" class="solbanner" role="alert">⚠ LÖSUNG ANGEZEIGT – dieses Rätsel zählt nicht als selbst gelöst</div>
+      <div id="stage"></div>
+      <div id="pad"></div>
+      <div class="msg" id="msg" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="right">
+      <div class="card">
+        <h2 id="newTitle">Neues Rätsel</h2>
+        <label class="small" id="sizeLbl">Grösse</label>
+        <div class="seg" id="sizeSeg"></div>
+        <label class="small">Niveau</label>
+        <div class="seg" id="lvlSeg"></div>
+        <p class="lvldesc" id="lvlDesc"></p>
+        <button class="btn primary" style="width:100%" id="btnNew">Neues Rätsel erstellen</button>
+      </div>
+
+      <div class="card">
+        <button class="btn" id="btnBack" style="width:100%;margin-bottom:10px">⚙ Neues Rätsel / Einstellungen ändern</button>
+        <h2>Werkzeuge</h2>
+        <div class="btns">
+          <button class="btn primary full" id="btnSubmit" disabled title="Erst alle Felder ausfüllen">📥 Abgeben</button>
+          <button class="btn full" id="btnCheck" style="display:none">✔ Überprüfen</button>
+          <button class="btn" id="btnNotes">✎ Notizen: aus</button>
+          <button class="btn" id="btnHint">💡 Tipp</button>
+          <button class="btn" id="btnReset">↺ Neu beginnen</button>
+          <button class="btn" id="btnSolve">Lösung zeigen</button>
+          <button class="btn full" id="btnPrint">🖨 Drucken</button>
+        </div>
+        <label class="toggle" style="display:none"><input type="checkbox" id="autoCheck"> Fehler sofort rot anzeigen</label>
+        <div class="legend">
+          <span style="background:var(--okbg);color:var(--ok)">richtig</span>
+          <span style="background:var(--badbg);color:var(--bad)">falsch</span>
+          <span style="background:var(--hintbg);color:var(--hint)">Tipp</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <details>
+          <summary id="rulesTitle">So geht's</summary>
+          <ul id="rules"></ul>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <h3 id="winTitle">🎉 Geschafft!</h3>
+    <p id="winText"></p>
+    <p id="winTip" style="font-size:.9rem;color:var(--muted)">Tipp: Mach einen Screenshot für dein Lernjournal.</p>
+    <button class="btn primary" id="btnWinNew" style="margin-top:10px">Nächstes Rätsel</button>
+    <button class="btn" id="btnWinClose" style="margin-top:10px">Schliessen</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   KERN – gemeinsam für alle Rätsel (wird in jede Rätsel-Datei eingebaut)
+   Enthält: Hilfsfunktionen und die Basisklasse GridPuzzle.
+   Ein Rätsel erbt von GridPuzzle und meldet sich mit  const GAME = {...}  an.
+   ===================================================================== */
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function randOf(a){return a[Math.floor(Math.random()*a.length)];}
+const LEVEL_NAMES={sl:'Sehr leicht',l:'Leicht',m:'Mittel',s:'Schwer',ss:'Sehr schwer',us:'Ultraschwer'};
+
+class GridPuzzle{
+  constructor(def,size,lvlKey,data){
+    this.def=def; this.n=size; this.lvlKey=lvlKey;
+    this.sol=data.sol; this.cur=data.puz.slice();
+    this.given=data.puz.map(v=>v>0);
+    this.hinted=new Array(size*size).fill(false);
+    this.mark=new Array(size*size).fill(0);          // 0 nichts, 1 richtig, 2 falsch
+    this.sel=-1; this.done=false; this.locked=false; this.cells=[]; this.ctx=null;
+  }
+
+  /* --- Hooks, die Unterklassen überschreiben --- */
+  baseClass(i){return 'cell';}
+  extraClass(i){return i===this.sel?' sel':'';}
+  paint(i,d){}                                       // Zelleninhalt zeichnen
+  onCell(i){this.sel=i;this.refresh();}
+  handleKey(e){return false;}
+  buildPad(pad){pad.className='padhelp';pad.textContent=this.def.padHelp||'';}
+  afterSet(i,v){}
+  afterReset(){}
+  afterRefresh(){}
+  cellState(i){const v=this.cur[i];if(!v)return 'empty';return v===this.sol[i]?'right':'wrong';}
+  solved(){return this.cur.every((v,k)=>v===this.sol[k]);}
+  pickHint(){
+    const open=[];
+    for(let i=0;i<this.cur.length;i++)if(!this.given[i]&&this.cur[i]!==this.sol[i])open.push(i);
+    if(!open.length)return null;
+    const i=(this.sel>=0&&open.includes(this.sel))?this.sel:randOf(open);
+    return {i,text:'Ein Feld wurde mit einem Tipp ausgefüllt (gelb).'};
+  }
+  revealEmpty(i){this.hinted[i]=true;}
+
+  /* --- gemeinsame Abläufe --- */
+  buildBoard(){
+    const b=document.createElement('div');
+    b.className='board g-'+this.def.id;
+    b.style.setProperty('--n',this.n);
+    b.setAttribute('aria-label',this.def.name+'-Feld');
+    this.cells=[];
+    for(let i=0;i<this.n*this.n;i++){
+      const d=document.createElement('div');
+      d.addEventListener('click',()=>this.onCell(i));
+      b.appendChild(d);this.cells.push(d);
+    }
+    return b;
+  }
+  mount(ctx,stage,pad){
+    this.ctx=ctx;
+    stage.innerHTML='';
+    stage.appendChild(this.buildBoard());
+    pad.className='';pad.removeAttribute('style');pad.innerHTML='';
+    this.buildPad(pad);
+    this.refresh();
+  }
+  refresh(){
+    for(let i=0;i<this.cur.length;i++){
+      const d=this.cells[i];
+      let cls=this.baseClass(i);
+      if(this.given[i])cls+=' given';
+      if(this.hinted[i])cls+=' hint';
+      if(this.mark[i]===1)cls+=' ok';
+      if(this.mark[i]===2)cls+=' bad';
+      cls+=this.extraClass(i);
+      d.className=cls;
+      this.paint(i,d);
+    }
+    this.afterRefresh();
+  }
+  commit(){this.ctx.hideMsg();this.refresh();this.ctx.changed();}
+  setCell(i,v){
+    this.cur[i]=v;this.hinted[i]=false;this.mark[i]=0;
+    if(v&&this.ctx.autoCheck()&&v!==this.sol[i])this.mark[i]=2;
+    this.afterSet(i,v);
+  }
+  editable(){return !this.done&&!this.locked&&this.sel>=0&&!this.given[this.sel];}
+  keydown(e){
+    if(this.handleKey(e))return true;
+    const k=e.key,N=this.n;
+    if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k))return false;
+    if(this.sel<0)this.sel=0;
+    else{
+      const r=Math.floor(this.sel/N),c=this.sel%N;
+      if(k==='ArrowLeft'&&c>0)this.sel--;
+      if(k==='ArrowRight'&&c<N-1)this.sel++;
+      if(k==='ArrowUp'&&r>0)this.sel-=N;
+      if(k==='ArrowDown'&&r<N-1)this.sel+=N;
+    }
+    this.refresh();return true;
+  }
+  check(){
+    let wrong=0,empty=0,right=0;
+    for(let i=0;i<this.cur.length;i++){
+      if(this.given[i]||this.hinted[i])continue;
+      const s=this.cellState(i);
+      if(s==='empty'){empty++;this.mark[i]=0;}
+      else if(s==='skip')this.mark[i]=0;
+      else if(s==='right'){this.mark[i]=1;right++;}
+      else{this.mark[i]=2;wrong++;}
+    }
+    this.refresh();
+    return {wrong,empty,right};
+  }
+  hint(){
+    const p=this.pickHint();
+    if(!p)return null;
+    this.cur[p.i]=this.sol[p.i];this.hinted[p.i]=true;this.mark[p.i]=0;
+    this.afterSet(p.i,this.sol[p.i]);
+    this.sel=p.i;this.refresh();
+    return p.text;
+  }
+  reset(){
+    for(let i=0;i<this.cur.length;i++)if(!this.given[i]){this.cur[i]=0;this.hinted[i]=false;}
+    this.mark.fill(0);this.sel=-1;this.done=false;
+    this.afterReset();this.refresh();
+  }
+  reveal(){
+    for(let i=0;i<this.cur.length;i++){
+      if(this.given[i])continue;
+      if(this.cur[i]&&this.cur[i]!==this.sol[i])this.mark[i]=2;
+      else if(this.cur[i]===this.sol[i])this.mark[i]=1;
+      else this.revealEmpty(i);
+      this.cur[i]=this.sol[i];
+    }
+    this.afterReset();   // Notizen o. Ä. löschen
+    this.done=true;this.refresh();
+  }
+  finish(){
+    this.done=true;
+    for(let i=0;i<this.cur.length;i++)if(!this.given[i]&&!this.hinted[i])this.mark[i]=1;
+    this.refresh();
+  }
+  applyAutoCheck(on){
+    for(let i=0;i<this.cur.length;i++){
+      if(this.given[i]||this.hinted[i])continue;
+      if(!on&&this.mark[i]===2)this.mark[i]=0;
+      if(on&&this.cur[i]&&this.cur[i]!==this.sol[i])this.mark[i]=2;
+    }
+    this.refresh();
+  }
+  clearSelection(){this.sel=-1;this.refresh();}
+  /* Alle Felder ausgefüllt? (Rätsel mit Wasser/Kreuzen überschreiben das.) */
+  complete(){return this.cur.every(v=>v>0);}
+  /* Vollständig, aber falsch: Fehler rot zeigen und das Rätsel sperren – es gibt kein Korrigieren mehr. */
+  lock(){
+    this.locked=true;this.drag=null;
+    this.check();                                         // markiert die falschen Felder rot
+    for(let i=0;i<this.mark.length;i++)if(this.mark[i]===1)this.mark[i]=0;
+    this.sel=-1;this.refresh();
+  }
+}
+
+
+/* =====================================================================
+   RÄTSEL-MODUL: Mordoku
+   ===================================================================== */
+/* ===== LOGIK-START ===== */
+/* ---------- Mordoku ----------
+   Plan mit N×N Feldern, in Räume unterteilt. N Personen: in jeder Zeile und jeder Spalte genau eine.
+   Auf Feldern mit einem Möbelstück (Pflanze, Regal …) steht niemand; Stühle und Teppiche sind begehbar.
+   Das Opfer war mit genau einer weiteren Person im selben Raum – das ist die Täterin oder der Täter.
+   Feldnummer c = Zeile*N + Spalte. Personen 0 … N-1. */
+/* Verdächtige heissen A…, B…, C… (Spielstein = Anfangsbuchstabe), das Opfer beginnt mit V */
+const MK_SUS=[[['Anna','f'],['Anton','m'],['Alina','f']],[['Bea','f'],['Beat','m'],['Bruno','m']],[['Carla','f'],['Cyrill','m'],['Chiara','f']],
+  [['Dana','f'],['Dario','m'],['Dominik','m']],[['Elena','f'],['Emil','m'],['Eva','f']],[['Flavia','f'],['Fabio','m'],['Flurin','m']],[['Gina','f'],['Gian','m'],['Gregor','m']]];
+const MK_VIC=[['Vera','f'],['Viktor','m'],['Valentin','m'],['Vreni','f'],['Vanessa','f'],['Vito','m']];
+const MK_COLORS=['#1d4ed8','#c2410c','#15803d','#7e22ce','#be123c','#0e7490','#854d0e'];
+const MK_VCOL='#231f20';
+const MK_ROOMCOL=['#fdebd0','#dcecf8','#e2f3d5','#e8e2f7','#e7e5e0','#fbf4bd','#d8f1ec','#f8dfeb'];
+const MK_ROOMS=[
+  {n:'Küche',in:'in der Küche',In:'In der Küche',nom:'Die Küche'},
+  {n:'Salon',in:'im Salon',In:'Im Salon',nom:'Der Salon'},
+  {n:'Bibliothek',in:'in der Bibliothek',In:'In der Bibliothek',nom:'Die Bibliothek'},
+  {n:'Wintergarten',in:'im Wintergarten',In:'Im Wintergarten',nom:'Der Wintergarten'},
+  {n:'Esszimmer',in:'im Esszimmer',In:'Im Esszimmer',nom:'Das Esszimmer'},
+  {n:'Halle',in:'in der Halle',In:'In der Halle',nom:'Die Halle'},
+  {n:'Büro',in:'im Büro',In:'Im Büro',nom:'Das Büro'},
+  {n:'Musikzimmer',in:'im Musikzimmer',In:'Im Musikzimmer',nom:'Das Musikzimmer'},
+  {n:'Galerie',in:'in der Galerie',In:'In der Galerie',nom:'Die Galerie'},
+  {n:'Atelier',in:'im Atelier',In:'Im Atelier',nom:'Das Atelier'},
+  {n:'Kaminzimmer',in:'im Kaminzimmer',In:'Im Kaminzimmer',nom:'Das Kaminzimmer'},
+  {n:'Werkstatt',in:'in der Werkstatt',In:'In der Werkstatt',nom:'Die Werkstatt'}
+];
+/* Möbel, auf denen niemand stehen kann */
+const MK_BLOCK=[
+  {n:'Pflanze',gen:'einer Pflanze',pl:'Pflanzen',e:'🪴',dat:'einer Pflanze'},
+  {n:'Bücherregal',gen:'eines Bücherregals',pl:'Bücherregale',e:'📚',dat:'einem Bücherregal'},
+  {n:'Standuhr',gen:'einer Standuhr',pl:'Standuhren',e:'🕰️',dat:'einer Standuhr'},
+  {n:'Klavier',gen:'eines Klaviers',pl:'Klaviere',e:'🎹',dat:'einem Klavier'},
+  {n:'Statue',gen:'einer Statue',pl:'Statuen',e:'🗿',dat:'einer Statue'},
+  {n:'Vase',gen:'einer Vase',pl:'Vasen',e:'🏺',dat:'einer Vase'},
+  {n:'Truhe',gen:'einer Truhe',pl:'Truhen',e:'🧰',dat:'einer Truhe'}
+];
+/* begehbare Gegenstände: 0 Stuhl, 1 Teppich */
+const MK_WALK=[
+  {n:'Stuhl',e:'🪑',on:'sass auf einem Stuhl',non:'sass nicht auf einem Stuhl'},
+  {n:'Teppich',e:'',on:'stand auf einem Teppich',non:'stand nicht auf einem Teppich'}
+];
+const MK_PLACES=['Villa Rosenberg','Schloss Falkenstein','Berghotel Alpenblick','Landhaus am See','Gutshof Lindenau','Hotel Bellevue','Jagdschloss Hirschfeld','Pension Seeblick'];
+const MK_COLS='ABCDEFGH';
+function mkCoord(N,c){return MK_COLS[c%N]+(((c/N)|0)+1);}
+
+/* ----- Plan erzeugen: Räume, Möbel ----- */
+function mkLayout(N,pos){
+  const C=N*N,R=N-1+Math.floor(Math.random()*2);
+  const nb=c=>{const r=(c/N)|0,k=c%N,o=[];if(r>0)o.push(c-N);if(r<N-1)o.push(c+N);if(k>0)o.push(c-1);if(k<N-1)o.push(c+1);return o;};
+  const room=new Int8Array(C).fill(-1),size=new Array(R).fill(0);
+  const seeds=shuffle([...Array(C).keys()]).slice(0,R);
+  seeds.forEach((c,i)=>{room[c]=i;size[i]=1;});
+  let left=C-R;
+  while(left>0){
+    const opts=[];
+    for(let c=0;c<C;c++){if(room[c]>=0)continue;for(const d of nb(c))if(room[d]>=0)opts.push([c,room[d]]);}
+    // kleine Räume wachsen bevorzugt
+    let best=null,bw=-1;
+    for(const o of opts){const w=Math.random()/(size[o[1]]*size[o[1]]);if(w>bw){bw=w;best=o;}}
+    room[best[0]]=best[1];size[best[1]]++;left--;
+  }
+  if(size.some(s=>s<2||s>Math.ceil(C/R*1.9)))return null;
+  // Räume nach erstem Feld nummerieren (oben links zuerst)
+  const map=new Array(R).fill(-1);let nx=0;
+  for(let c=0;c<C;c++)if(map[room[c]]<0)map[room[c]]=nx++;
+  for(let c=0;c<C;c++)room[c]=map[room[c]];
+  const occ=new Uint8Array(C);for(const c of pos)occ[c]=1;
+  // Möbel (blockierend) nur auf Feldern ohne Person
+  const blk=new Int8Array(C).fill(-1),walk=new Int8Array(C).fill(-1);
+  const nTypes=N<=4?2:3,nBlk=N<=4?2+Math.floor(Math.random()*2):N===5?4+Math.floor(Math.random()*2):6+Math.floor(Math.random()*3);
+  const types=shuffle([...MK_BLOCK.keys()]).slice(0,nTypes);
+  const free=shuffle([...Array(C).keys()].filter(c=>!occ[c]));
+  const freeIn=new Array(R).fill(0);for(let c=0;c<C;c++)freeIn[room[c]]++;
+  let put=0;
+  for(const c of free){
+    if(put>=nBlk)break;
+    if(freeIn[room[c]]<=2)continue;                  // jeder Raum behält mindestens zwei freie Felder
+    blk[c]=put<nTypes?put:Math.floor(Math.random()*nTypes);put++;freeIn[room[c]]--;
+  }
+  if(put<nBlk)return null;
+  // Stühle und Teppiche: teils unter Personen, teils auf leeren Feldern
+  const rest=shuffle([...Array(C).keys()].filter(c=>blk[c]<0));
+  const nCh=N<=4?1+Math.floor(Math.random()*2):2+Math.floor(Math.random()*2),nCa=N<=4?1:1+Math.floor(Math.random()*2);
+  let i=0;
+  for(let k=0;k<nCh&&i<rest.length;k++)walk[rest[i++]]=0;
+  for(let k=0;k<nCa&&i<rest.length;k++)walk[rest[i++]]=1;
+  // «direkt neben» = waagrecht oder senkrecht angrenzend UND im selben Raum
+  const near=types.map(()=>new Uint8Array(C));
+  for(let c=0;c<C;c++){if(blk[c]>=0)continue;for(const d of nb(c))if(blk[d]>=0&&room[d]===room[c])near[blk[d]][c]=1;}
+  /* odir[d][o][c]: Möbel o liegt direkt oberhalb (d=0), unterhalb (1), links (2), rechts (3) von Feld c – im selben Raum */
+  const odir=[0,1,2,3].map(()=>types.map(()=>new Uint8Array(C)));
+  for(let c=0;c<C;c++){
+    if(blk[c]>=0)continue;const r=(c/N)|0,k=c%N;
+    [[r>0,c-N],[r<N-1,c+N],[k>0,c-1],[k<N-1,c+1]].forEach(([ok,d],i)=>{if(ok&&blk[d]>=0&&room[d]===room[c])odir[i][blk[d]][c]=1;});
+  }
+  const edge=new Uint8Array(C);
+  for(let c=0;c<C;c++){const r=(c/N)|0,k=c%N;if(r===0||k===0||r===N-1||k===N-1)edge[c]=1;}
+  const names=shuffle([...MK_ROOMS.keys()]).slice(0,R);
+  return {N,C,R,room,blk,walk,near,odir,edge,types,rooms:names};
+}
+
+/* ----- Aussagen ----- */
+const MK_UN={room:1,row:1,col:1,near:1,odir:1,on:1,edge:1};
+function mkUnary(L,cl,c){
+  const N=L.N;let v;
+  switch(cl.t){
+    case 'room':v=L.room[c]===cl.r;break;
+    case 'row':v=((c/N)|0)===cl.v;break;
+    case 'col':v=c%N===cl.v;break;
+    case 'near':v=!!L.near[cl.o][c];break;
+    case 'odir':v=!!L.odir[cl.d][cl.o][c];break;
+    case 'on':v=L.walk[c]===cl.o;break;
+    case 'edge':v=!!L.edge[c];break;
+    default:return true;
+  }
+  return cl.neg?!v:v;
+}
+function mkRel(L,cl,ca,cb){
+  const N=L.N;
+  if(cl.t==='same'){const v=L.room[ca]===L.room[cb];return cl.neg?!v:v;}
+  if(cl.t==='pair')return L.room[ca]===L.room[cb];
+  if(cl.t==='north'){const d=((cb/N)|0)-((ca/N)|0);return cl.ex?d===1:d>0;}
+  if(cl.t==='west'){const d=cb%N-ca%N;return cl.ex?d===1:d>0;}
+  return true;
+}
+/* Stimmt eine vollständige Aufstellung (pos[p] = Feld) mit allen Aussagen und der Opfer-Regel überein? */
+function mkValid(L,pos,clues,vic){
+  const P=pos.length,inR=new Array(L.R).fill(0);
+  for(const c of pos)inR[L.room[c]]++;
+  if(inR[L.room[pos[vic]]]!==2)return false;
+  for(const cl of clues){
+    if(MK_UN[cl.t]){if(!mkUnary(L,cl,pos[cl.a]))return false;}
+    else if(cl.t==='count'){if(inR[cl.r]!==cl.k)return false;}
+    else if(cl.t==='alone'){const v=inR[L.room[pos[cl.a]]]===1;if(cl.neg?v:!v)return false;}
+    else{if(!mkRel(L,cl,pos[cl.a],pos[cl.b]))return false;if(cl.t==='pair'&&inR[L.room[pos[cl.a]]]!==2)return false;}
+  }
+  return true;
+}
+/* Anzahl Lösungen durch vollständiges Durchprobieren (unabhängige Kontrolle des logischen Lösers) */
+function mkCount(L,P,clues,vic,limit){
+  const N=L.N,C=L.C,dom=[];
+  for(let p=0;p<P;p++){
+    const d=[];
+    for(let c=0;c<C;c++){
+      if(L.blk[c]>=0)continue;
+      let ok=true;
+      for(const cl of clues)if(MK_UN[cl.t]&&cl.a===p&&!mkUnary(L,cl,c)){ok=false;break;}
+      if(ok)d.push(c);
+    }
+    dom.push(d);
+  }
+  const order=[...Array(P).keys()].sort((a,b)=>dom[a].length-dom[b].length);
+  const pos=new Array(P).fill(-1),ur=new Uint8Array(N),uc=new Uint8Array(N);let n=0;
+  (function rec(i){
+    if(n>=limit)return;
+    if(i===P){if(mkValid(L,pos,clues,vic))n++;return;}
+    const p=order[i];
+    for(const c of dom[p]){
+      const r=(c/N)|0,k=c%N;
+      if(ur[r]||uc[k])continue;
+      ur[r]=uc[k]=1;pos[p]=c;rec(i+1);ur[r]=uc[k]=0;pos[p]=-1;
+      if(n>=limit)return;
+    }
+  })(0);
+  return n;
+}
+
+/* ===== Logischer Löser mit Technik-Stufen =====
+   1 Aussagen direkt anwenden, eine Person pro Zeile und Spalte
+   2 «Wer passt noch in diese Zeile/Spalte?» (einzige Person für eine Zeile, Person auf eine Zeile festgelegt)
+   3 Aussagen über zwei Personen (gleicher Raum, weiter oben/links als)
+   4 Räume zählen, Opfer-Regel, «allein im Raum», Zweier- und Dreiergruppen
+   5 Annahme testen (führt sie zum Widerspruch, ist das Feld ausgeschlossen) */
+function mkState(L,P,clues,vic,fixed){
+  const C=L.C,cand=[];
+  for(let p=0;p<P;p++){const a=new Uint8Array(C);for(let c=0;c<C;c++)a[c]=L.blk[c]<0?1:0;cand.push(a);}
+  for(const cl of clues){
+    if(cl.t==='count'){if(cl.k===0)for(let p=0;p<P;p++)for(let c=0;c<C;c++)if(L.room[c]===cl.r)cand[p][c]=0;continue;}
+    if(MK_UN[cl.t]){const a=cand[cl.a];for(let c=0;c<C;c++)if(a[c]&&!mkUnary(L,cl,c))a[c]=0;}
+  }
+  if(fixed)for(let p=0;p<P;p++)if(fixed[p]>=0){const a=cand[p];for(let c=0;c<C;c++)if(c!==fixed[p])a[c]=0;}
+  return {L,P,C,cand,clues,vic,bad:false,probes:0};
+}
+function mkCopy(st){return {L:st.L,P:st.P,C:st.C,cand:st.cand.map(a=>a.slice()),clues:st.clues,vic:st.vic,bad:false,probes:0};}
+function mkOne(st,p){let n=0,at=-1;const a=st.cand[p];for(let c=0;c<st.C;c++)if(a[c]){n++;at=c;}return n===1?at:-1;}
+function mkSolvedAll(st){for(let p=0;p<st.P;p++)if(mkOne(st,p)<0)return false;return true;}
+/* Stufe 1 */
+function mkBasic(st){
+  const {L,P,C,cand}=st,N=L.N;let any=false;
+  for(let p=0;p<P;p++){
+    let n=0,at=-1;const a=cand[p];
+    for(let c=0;c<C;c++)if(a[c]){n++;at=c;}
+    if(!n){st.bad=true;return true;}
+    if(n===1){
+      const r=(at/N)|0,k=at%N;
+      for(let q=0;q<P;q++){
+        if(q===p)continue;const b=cand[q];
+        for(let j=0;j<N;j++){const x=r*N+j,y=j*N+k;if(b[x]){b[x]=0;any=true;}if(b[y]){b[y]=0;any=true;}}
+      }
+    }
+  }
+  return any;
+}
+/* Stufe 2 */
+function mkLines(st){
+  const {L,P,C,cand}=st,N=L.N;let any=false;
+  for(const byRow of [true,false]){
+    const idx=c=>byRow?(c/N)|0:c%N,has=[];
+    for(let p=0;p<P;p++){const h=new Uint8Array(N);for(let c=0;c<C;c++)if(cand[p][c])h[idx(c)]=1;has.push(h);}
+    for(let l=0;l<N;l++){
+      let n=0,who=-1;for(let p=0;p<P;p++)if(has[p][l]){n++;who=p;}
+      if(!n){st.bad=true;return true;}
+      if(n===1){const a=cand[who];for(let c=0;c<C;c++)if(a[c]&&idx(c)!==l){a[c]=0;any=true;}}
+    }
+    for(let p=0;p<P;p++){
+      let n=0,l=-1;for(let j=0;j<N;j++)if(has[p][j]){n++;l=j;}
+      if(n===1)for(let q=0;q<P;q++){if(q===p)continue;const b=cand[q];for(let c=0;c<C;c++)if(b[c]&&idx(c)===l){b[c]=0;any=true;}}
+    }
+    if(any)return true;
+  }
+  return any;
+}
+/* Stufe 3 */
+function mkBinary(st){
+  const {L,C,cand}=st,N=L.N;let any=false;
+  for(const cl of st.clues){
+    if(cl.t!=='same'&&cl.t!=='pair'&&cl.t!=='north'&&cl.t!=='west')continue;
+    const A=cand[cl.a],B=cand[cl.b];
+    for(let ca=0;ca<C;ca++){
+      if(!A[ca])continue;let ok=false;
+      for(let cb=0;cb<C&&!ok;cb++)if(B[cb]&&((ca/N)|0)!==((cb/N)|0)&&ca%N!==cb%N&&mkRel(L,cl,ca,cb))ok=true;
+      if(!ok){A[ca]=0;any=true;}
+    }
+    for(let cb=0;cb<C;cb++){
+      if(!B[cb])continue;let ok=false;
+      for(let ca=0;ca<C&&!ok;ca++)if(A[ca]&&((ca/N)|0)!==((cb/N)|0)&&ca%N!==cb%N&&mkRel(L,cl,ca,cb))ok=true;
+      if(!ok){B[cb]=0;any=true;}
+    }
+  }
+  return any;
+}
+/* Stufe 4a: k Personen teilen sich genau k Zeilen (Spalten) – diese Zeilen sind für alle anderen gesperrt */
+function mkHall(st){
+  const {L,P,C,cand}=st,N=L.N;let any=false;
+  for(const byRow of [true,false]){
+    const m=[];
+    for(let p=0;p<P;p++){let x=0;for(let c=0;c<C;c++)if(cand[p][c])x|=1<<(byRow?(c/N)|0:c%N);m.push(x);}
+    for(let sub=1;sub<(1<<P)-1;sub++){
+      let k=0,u=0;for(let p=0;p<P;p++)if(sub>>p&1){k++;u|=m[p];}
+      if(k<2||k>P-2)continue;
+      let pc=0;for(let j=0;j<N;j++)if(u>>j&1)pc++;
+      if(pc<k){st.bad=true;return true;}
+      if(pc>k)continue;
+      for(let q=0;q<P;q++){
+        if(sub>>q&1)continue;const b=cand[q];
+        for(let c=0;c<C;c++)if(b[c]&&(u>>(byRow?(c/N)|0:c%N)&1)){b[c]=0;any=true;}
+      }
+      if(any)return true;
+    }
+  }
+  return any;
+}
+/* Stufe 4b: Personenzahl pro Raum, «allein», Opfer-Regel */
+function mkRooms(st){
+  const {L,P,C,cand,vic}=st,N=L.N,R=L.R;
+  const inR=[],tot=[];
+  for(let p=0;p<P;p++){const x=new Array(R).fill(0);let t=0;for(let c=0;c<C;c++)if(cand[p][c]){x[L.room[c]]++;t++;}inR.push(x);tot.push(t);}
+  const sure=(p,r)=>tot[p]>0&&inR[p][r]===tot[p],poss=(p,r)=>inR[p][r]>0;
+  let any=false;
+  const drop=(p,r)=>{const a=cand[p];for(let c=0;c<C;c++)if(a[c]&&L.room[c]===r){a[c]=0;any=true;}};
+  const keep=(p,r)=>{const a=cand[p];for(let c=0;c<C;c++)if(a[c]&&L.room[c]!==r){a[c]=0;any=true;}};
+  const others=(p,r,f)=>{const o=[];for(let q=0;q<P;q++)if(q!==p&&f(q,r))o.push(q);return o;};
+  /* Feld c von p braucht eine zweite Person im selben Raum (andere Zeile und Spalte) */
+  const partner=(p,c)=>{
+    const r=L.room[c];
+    for(let q=0;q<P;q++){if(q===p)continue;const b=cand[q];
+      for(let d=0;d<C;d++)if(b[d]&&L.room[d]===r&&((d/N)|0)!==((c/N)|0)&&d%N!==c%N)return true;}
+    return false;
+  };
+  for(const cl of st.clues){
+    if(cl.t==='count'&&cl.k>0){
+      const r=cl.r,S=others(-1,r,sure),Q=others(-1,r,poss);
+      if(S.length>cl.k||Q.length<cl.k){st.bad=true;return true;}
+      if(S.length===cl.k){for(const p of Q)if(!S.includes(p))drop(p,r);}
+      else if(Q.length===cl.k)for(const p of Q)keep(p,r);
+    } else if(cl.t==='alone'&&!cl.neg){
+      const a=cl.a;
+      for(let r=0;r<R;r++){
+        if(!poss(a,r))continue;
+        if(others(a,r,sure).length)drop(a,r);
+        else if(sure(a,r))for(const q of others(a,r,poss))drop(q,r);
+      }
+    } else if(cl.t==='alone'&&cl.neg){
+      const a=cl.a,A=cand[a];
+      for(let c=0;c<C;c++)if(A[c]&&!partner(a,c)){A[c]=0;any=true;}
+      for(let r=0;r<R;r++)if(sure(a,r)){const Q=others(a,r,poss);if(Q.length===1)keep(Q[0],r);}
+    }
+    if(any)return true;
+  }
+  /* Opfer: genau eine weitere Person im Raum */
+  const V=cand[vic];
+  for(let c=0;c<C;c++)if(V[c]&&!partner(vic,c)){V[c]=0;any=true;}
+  if(any)return true;
+  for(let r=0;r<R;r++){
+    if(!poss(vic,r))continue;
+    const S=others(vic,r,sure),Q=others(vic,r,poss);
+    if(S.length>1||Q.length===0){drop(vic,r);continue;}
+    if(sure(vic,r)){
+      if(S.length===1){for(const q of Q)if(q!==S[0])drop(q,r);}
+      else if(Q.length===1)keep(Q[0],r);
+    }
+  }
+  return any;
+}
+/* Stufe 5: Annahme «Person p steht auf Feld c» durchrechnen (mit Stufe 1–4). Widerspruch → Feld gestrichen. */
+function mkProbe(st){
+  const {P,C,cand}=st,order=[];
+  for(let p=0;p<P;p++){let n=0;for(let c=0;c<C;c++)if(cand[p][c])n++;if(n>1)order.push([n,p]);}
+  order.sort((a,b)=>a[0]-b[0]);
+  for(const [,p] of order){
+    for(let c=0;c<C;c++){
+      if(!cand[p][c])continue;
+      const t=mkCopy(st);
+      for(let d=0;d<C;d++)if(d!==c)t.cand[p][d]=0;
+      mkRun(t,4);
+      if(t.bad){cand[p][c]=0;st.probes++;st.lastProbe={p,c};return true;}
+    }
+  }
+  return false;
+}
+/* bis Stufe t folgern, immer die einfachste Technik zuerst. Liefert die höchste benutzte Stufe. */
+function mkRun(st,t){
+  let used=0;
+  for(;;){
+    if(st.bad)return used;
+    let hit=0;
+    if(mkBasic(st))hit=1;
+    else if(mkSolvedAll(st)){if(!mkValid(st.L,mkPositions(st),st.clues,st.vic))st.bad=true;return used;}   // fertige Aufstellung muss alle Aussagen erfüllen
+    else if(t>=2&&mkLines(st))hit=2;
+    else if(t>=3&&mkBinary(st))hit=3;
+    else if(t>=4&&(mkHall(st)||mkRooms(st)))hit=4;
+    else if(t>=5&&mkProbe(st))hit=5;
+    if(!hit)return used;
+    if(hit>used)used=hit;
+  }
+}
+function mkPositions(st){const pos=[];for(let p=0;p<st.P;p++)pos.push(mkOne(st,p));return pos;}
+/* nötige Stufe (0 = mit diesen Techniken nicht lösbar); info.probes = Anzahl Annahmen */
+function mkTier(L,P,clues,vic,maxT,info){
+  for(let t=1;t<=(maxT||5);t++){
+    const st=mkState(L,P,clues,vic);
+    mkRun(st,t);
+    if(!st.bad&&mkSolvedAll(st)){
+      const pos=mkPositions(st);
+      if(!mkValid(L,pos,clues,vic))return 0;
+      if(info){info.probes=st.probes;info.pos=pos;}
+      return t;
+    }
+  }
+  return 0;
+}
+
+/* ----- Alle wahren Aussagen zu einer Aufstellung ----- */
+function mkAllClues(L,pos,vic){
+  const N=L.N,P=pos.length,out=[],inR=new Array(L.R).fill(0);
+  for(const c of pos)inR[L.room[c]]++;
+  const add=(k,cl)=>{cl.k0=k;out.push(cl);};
+  for(let a=0;a<P;a++){
+    if(a===vic)continue;                              // über das Opfer gibt es nur die Opfer-Regel
+    const c=pos[a],r=(c/N)|0,k=c%N;
+    for(let x=0;x<L.R;x++)add(x===L.room[c]?'room':'nroom',{t:'room',a,r:x,neg:x!==L.room[c]});
+    for(let x=0;x<N;x++){add(x===r?'row':'nrow',{t:'row',a,v:x,neg:x!==r});add(x===k?'col':'ncol',{t:'col',a,v:x,neg:x!==k});}
+    for(let o=0;o<L.types.length;o++){
+      const v=!!L.near[o][c];add(v?'near':'nnear',{t:'near',a,o,neg:!v});
+      for(let d=0;d<4;d++)if(L.odir[d][o][c])add('odir',{t:'odir',a,o,d});
+    }
+    for(let o=0;o<2;o++){if(!L.walk.includes(o))continue;const v=L.walk[c]===o;add(v?'on':'non',{t:'on',a,o,neg:!v});}
+    add(L.edge[c]?'edge':'nedge',{t:'edge',a,neg:!L.edge[c]});
+    {const v=inR[L.room[c]]===1;add(v?'alone':'nalone',{t:'alone',a,neg:!v});}
+    for(let b=0;b<P;b++){
+      if(b===a||b===vic)continue;
+      if(a<b){
+        const v=L.room[c]===L.room[pos[b]];
+        add(v?'same':'diff',{t:'same',a,b,neg:!v});
+        if(v&&inR[L.room[c]]===2)add('pair',{t:'pair',a,b});
+      }
+      const dr=((pos[b]/N)|0)-r,dk=pos[b]%N-k;
+      if(dr>0){add('north',{t:'north',a,b,flip:Math.random()<.5});if(dr===1)add('north1',{t:'north',a,b,ex:true,flip:Math.random()<.5});}
+      if(dk>0){add('west',{t:'west',a,b,flip:Math.random()<.5});if(dk===1)add('west1',{t:'west',a,b,ex:true,flip:Math.random()<.5});}
+    }
+  }
+  for(let r=0;r<L.R;r++)add('count',{t:'count',r,k:inR[r]});
+  return out;
+}
+/* Aussage als Satz; pr = «Sie»/«Er» der Person, auf deren Karte die Aussage steht */
+function mkText(cl,L,people){
+  const s=cl.t==='count'?-1:(cl.flip?cl.b:cl.a),o=cl.flip?cl.a:cl.b;
+  const Pr=s>=0?(people[s].g==='f'?'Sie':'Er'):'',B=o!==undefined?people[o].n:'',n=cl.neg?'nicht ':'';
+  switch(cl.t){
+    case 'room':return `${Pr} war ${n}${MK_ROOMS[L.rooms[cl.r]].in}.`;
+    case 'row':return `${Pr} war ${n}in Zeile ${cl.v+1}.`;
+    case 'col':return `${Pr} war ${n}in Spalte ${MK_COLS[cl.v]}.`;
+    case 'near':return `${Pr} stand ${n}direkt neben ${MK_BLOCK[L.types[cl.o]].dat}.`;
+    case 'odir':{const m=MK_BLOCK[L.types[cl.o]];           // Möbel liegt oben → Person steht direkt unterhalb davon
+      return `${Pr} stand direkt ${['unterhalb '+m.gen,'oberhalb '+m.gen,'rechts von '+m.dat,'links von '+m.dat][cl.d]}.`;}
+    case 'on':return `${Pr} ${cl.neg?MK_WALK[cl.o].non:MK_WALK[cl.o].on}.`;
+    case 'edge':return `${Pr} stand ${n}an einer Aussenwand.`;
+    case 'alone':return cl.neg?`${Pr} war nicht allein im Raum.`:`${Pr} war allein in einem Raum.`;
+    case 'same':return `${Pr} war ${n}im selben Raum wie ${B}.`;
+    case 'pair':return `${Pr} war mit ${B} allein in einem Raum.`;
+    case 'north':return `${Pr} war ${cl.ex?'genau eine Zeile ':''}weiter ${cl.flip?'unten':'oben'} als ${B}.`;
+    case 'west':return `${Pr} war ${cl.ex?'genau eine Spalte ':''}weiter ${cl.flip?'rechts':'links'} als ${B}.`;
+    case 'count':{
+      const rm=MK_ROOMS[L.rooms[cl.r]];
+      if(cl.k===0)return `${rm.nom} war leer.`;
+      if(cl.k===1)return `${rm.In} hielt sich genau eine Person auf.`;
+      return `${rm.In} hielten sich genau ${cl.k} Personen auf.`;
+    }
+  }
+  return '';
+}
+
+/* ----- Generator -----
+   lvl: {tier (genau diese Stufe ist nötig), pmin/pmax (Anzahl Annahmen bei Stufe 5), w (Gewichte der Aussagearten)} */
+function mkGenerate(N,lvl){
+  const P=N,C=N*N;
+  // Aufstellung: eine Person pro Zeile und Spalte
+  const cols=shuffle([...Array(N).keys()]),rows=shuffle([...Array(N).keys()]);
+  const pos=rows.map((r,i)=>r*N+cols[i]);
+  const L=mkLayout(N,pos);
+  if(!L)return null;
+  const inR=new Array(L.R).fill(0);for(const c of pos)inR[L.room[c]]++;
+  const pairs=[];for(let p=0;p<P;p++)if(inR[L.room[pos[p]]]===2)pairs.push(p);
+  if(!pairs.length)return null;
+  /* Das Opfer ist immer die letzte Person (Spielstein V), die Verdächtigen sind A, B, C … */
+  {const v=randOf(pairs),t=pos[v];pos[v]=pos[P-1];pos[P-1]=t;}
+  const vic=P-1,mur=pos.findIndex((c,p)=>p!==vic&&L.room[c]===L.room[pos[vic]]);
+  const T=lvl.tier,w=lvl.w;
+  const pool=mkAllClues(L,pos,vic).filter(cl=>w[cl.k0]>0);
+  for(const cl of pool)cl.key=-Math.log(1-Math.random())/w[cl.k0];
+  pool.sort((a,b)=>a.key-b.key);
+  const solves=(cs,info,t)=>{const st=mkState(L,P,cs,vic);mkRun(st,t||T);if(st.bad||!mkSolvedAll(st))return false;if(info)info.probes=st.probes;return true;};
+  const T0=Math.min(T,4);                                            // Aufbau ohne Annahmen (schnell); Annahmen entstehen erst beim Ausdünnen
+  const chosen=[],cap=N*5;
+  let ok=false;
+  for(const cl of pool){
+    // widersprüchliche Doppelungen vermeiden: pro Person höchstens eine direkte Zeilen- und Spaltenangabe ab Stufe 2
+    chosen.push(cl);
+    if(chosen.length>=N-1&&solves(chosen,null,T0)){ok=true;break;}
+    if(chosen.length>=cap)break;
+  }
+  if(!ok)return null;
+  // überflüssige Aussagen entfernen (zuletzt hinzugefügte bleibt eher drin → die direkten fallen zuerst weg)
+  const pmax=lvl.pmax||99;
+  for(const cl of shuffle(chosen.slice())){
+    const rest=chosen.filter(x=>x!==cl),info={probes:0};
+    if(solves(rest,info)&&info.probes<=pmax)chosen.splice(chosen.indexOf(cl),1);
+  }
+  const info={probes:0};
+  if(mkTier(L,P,chosen,vic,T,info)!==T)return null;                 // zu leicht oder nicht logisch lösbar
+  if(T===5&&(info.probes<(lvl.pmin||1)||info.probes>pmax))return null;
+  if(N<=6&&mkCount(L,P,chosen,vic,2)!==1)return null;               // Zusatzkontrolle durch Durchprobieren (bei 7×7 zu langsam; dort garantiert der logische Löser die Eindeutigkeit)
+  // Personen und Karten: jede Aussage steht auf der Karte der Person, von der sie handelt; Raum-Beobachtungen bei der Person mit den wenigsten Aussagen
+  const people=[];
+  for(let p=0;p<P-1;p++){const x=randOf(MK_SUS[p]);people.push({n:x[0],g:x[1],col:MK_COLORS[p]});}
+  {const x=randOf(MK_VIC);people.push({n:x[0],g:x[1],col:MK_VCOL});}
+  const cnt=new Array(P).fill(0);
+  const clues=chosen.map(cl=>({t:cl.t,a:cl.a,b:cl.b,r:cl.r,v:cl.v,o:cl.o,d:cl.d,k:cl.k,neg:cl.neg,ex:cl.ex,flip:cl.flip}));
+  for(const cl of clues)if(cl.t!=='count'){cl.card=cl.flip?cl.b:cl.a;cnt[cl.card]++;}
+  for(const cl of clues)if(cl.t==='count'){let best=0;for(let p=1;p<P-1;p++)if(cnt[p]<cnt[best])best=p;cl.card=best;cl.obs=true;cnt[best]++;}
+  clues.sort((x,y)=>x.card-y.card||(x.obs?1:0)-(y.obs?1:0));
+  for(const cl of clues)cl.text=mkText(cl,L,people);
+  const sol=new Array(C).fill(0);pos.forEach((c,p)=>sol[c]=p+1);
+  return {L,P,pos,vic,mur,people,names:people.map(x=>x.n),clues,sol,puz:new Array(C).fill(0),place:randOf(MK_PLACES),probes:info.probes};
+}
+/* ===== LOGIK-ENDE ===== */
+
+/* Gezeichnete Möbel (eigene SVG-Zeichnungen, 48×48) */
+const MK_SV=(b)=>`<svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="#2b2627" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">${b}</svg>`;
+const MK_ICON={
+  'Pflanze':MK_SV('<path d="M24 31C13 30 8 22 9 11c8 0 13 5 15 12 0-9 5-16 14-17 2 11-3 21-14 25z" fill="#5ea24f"/><path d="M24 31c-1-7-5-12-10-15M24 31c1-8 5-14 9-18" stroke-width="1.2"/><path d="M14 30h20l-3 13H17z" fill="#c96a3a"/><path d="M13 30h22" stroke-width="2.4"/>'),
+  'Bücherregal':MK_SV('<rect x="7" y="5" width="34" height="38" rx="2" fill="#a8703c"/><path d="M7 18h34M7 31h34"/><path d="M11 8h4v10h-4z" fill="#c0392b"/><path d="M15 9h4v9h-4z" fill="#2e86c1"/><path d="M19 7h5v11h-5z" fill="#f1c40f"/><path d="M27 10l4-1 2 9h-5z" fill="#27ae60"/><path d="M11 21h5v10h-5z" fill="#8e44ad"/><path d="M16 23h4v8h-4z" fill="#e67e22"/><path d="M24 22h4v9h-4zM28 21h4v10h-4z" fill="#ecf0f1"/><path d="M33 23h4v8h-4z" fill="#c0392b"/><path d="M12 39h10v-4H12zM26 34h4v9h-4zM30 35h5v8h-5z" fill="#2e86c1"/>'),
+  'Standuhr':MK_SV('<path d="M15 44V12c0-5 4-9 9-9s9 4 9 9v32z" fill="#8a5a2b"/><circle cx="24" cy="13" r="6.5" fill="#fff8e7"/><path d="M24 9v4l3 2" stroke-width="1.5"/><rect x="19" y="24" width="10" height="16" rx="1.5" fill="#5e3b18"/><path d="M24 25v8" stroke="#f1c40f" stroke-width="1.4"/><circle cx="24" cy="35" r="2.6" fill="#f1c40f" stroke-width="1.2"/><path d="M12 44h24" stroke-width="2.6"/>'),
+  'Klavier':MK_SV('<path d="M5 13h38v20H5z" fill="#2b2627"/><path d="M5 26h38v8H5z" fill="#fffdf7"/><path d="M10 26v8M15 26v8M20 26v8M25 26v8M30 26v8M35 26v8M40 26v8" stroke-width="1"/><path d="M9 26h3v5H9zM14 26h3v5h-3zM24 26h3v5h-3zM29 26h3v5h-3zM34 26h3v5h-3z" fill="#2b2627" stroke="none"/><path d="M8 34v9M40 34v9" stroke-width="2.6"/><path d="M14 17h20" stroke="#f1c40f" stroke-width="1.4"/>'),
+  'Statue':MK_SV('<path d="M13 35h22v9H13z" fill="#9aa3ab"/><path d="M11 35h26" stroke-width="2.4"/><path d="M14 35c0-8 4-11 10-11s10 3 10 11z" fill="#dfe4e8"/><circle cx="24" cy="14" r="8" fill="#eef1f3"/><path d="M21 14h.1M27 14h.1" stroke-width="2.2"/><path d="M21.5 18c1.5 1 3.500 1 5 0" stroke-width="1.3"/>'),
+  'Vase':MK_SV('<path d="M19 5h10l-2 7c7 4 10 10 9 17-1 8-5 13-7 15H19c-2-2-6-7-7-15-1-7 2-13 9-17z" fill="#2f7fb8"/><path d="M13 24c7 3 15 3 22 0M12.500 30c7 3 16 3 23 0" stroke="#fffdf7" stroke-width="2"/><path d="M18 5h12" stroke-width="2.6"/><path d="M17 44h14" stroke-width="2.6"/>'),
+  'Truhe':MK_SV('<path d="M6 22c0-8 5-12 12-12h12c7 0 12 4 12 12v2H6z" fill="#b07a3f"/><path d="M6 24h36v17H6z" fill="#8a5a2b"/><path d="M14 10.500V41M34 10.500V41" stroke="#5e3b18" stroke-width="2.4"/><rect x="20.500" y="20" width="7" height="9" rx="1.5" fill="#f1c40f"/><path d="M24 23.500v2.500" stroke-width="1.6"/>'),
+  'Stuhl':MK_SV('<path d="M14 31v13M34 31v13" stroke-width="3"/><rect x="13" y="4" width="22" height="22" rx="4" fill="#d9a85f"/><path d="M20 8v14M24 8v14M28 8v14" stroke="#9c6b2c" stroke-width="1.6"/><rect x="9" y="24" width="30" height="8" rx="3" fill="#c0522d"/>')
+};
+
+/* Porträts: eigene, einfache Figuren (Haut, Haare, Frisur, Kleidung je nach Person) */
+const MK_SKIN=['#f6d2b0','#e8b48a','#c98d62','#8d5a3b','#f1c9a5','#a86f4a'];
+const MK_HAIR=['#2b1d14','#5a3a22','#c9892b','#8a2f1e','#1d1d28','#d9b45a','#8b8b97'];
+const MK_SHIRT=['#ffffff','#2e86c1','#27ae60','#c0392b','#f1c40f','#8e44ad','#34495e'];
+function mkAvatar(p,i){
+  const skin=MK_SKIN[(i*5+2)%6],hair=MK_HAIR[(i*3+1)%7],shirt=MK_SHIRT[(i*2+3)%7],f=p.g==='f',st=(i+(f?0:1))%4;
+  let back='',front='';
+  if(f){
+    if(st===0){back=`<path d="M13 22c0-10 5-15 11-15s11 5 11 15v15h-5V22H18v15h-5z" fill="${hair}"/>`;front=`<path d="M15 19c1-7 5-10 9-10s8 3 9 10c-4-2-12-4-18 0z" fill="${hair}"/>`;}
+    else if(st===1){back=`<path d="M14 29V19c0-7 4-11 10-11s10 4 10 11v10c-2 1-4 0-4-3V19H18v7c0 3-2 4-4 3z" fill="${hair}"/>`;front=`<path d="M15 18c1-6 5-9 9-9s8 3 9 9c-5-1-13-3-18 0z" fill="${hair}"/>`;}
+    else if(st===2){back=`<circle cx="24" cy="7.500" r="4.500" fill="${hair}"/>`;front=`<path d="M15 20c0-8 4-11 9-11s9 3 9 11c-3-3-6-4-9-4s-6 1-9 4z" fill="${hair}"/>`;}
+    else{back=`<path d="M31 15c7 0 8 9 4 16-1-6-3-10-7-12z" fill="${hair}"/>`;front=`<path d="M15 20c0-8 4-11 9-11s9 3 9 11c-4-2-14-5-18 0z" fill="${hair}"/>`;}
+  } else {
+    if(st===0)front=`<path d="M15 19c0-8 4-11 9-11s9 3 9 11c-3-3-6-4-9-4s-6 1-9 4z" fill="${hair}"/>`;
+    else if(st===1)front=`<circle cx="17" cy="12" r="4.500" fill="${hair}"/><circle cx="24" cy="9.500" r="5" fill="${hair}"/><circle cx="31" cy="12" r="4.500" fill="${hair}"/>`;
+    else if(st===2)front=`<path d="M14 18c0-7 5-10 10-10s10 3 10 10z" fill="${hair}"/><path d="M12 18.500h16" stroke="${hair}" stroke-width="3" stroke-linecap="round"/>`;
+    else front=`<path d="M15 19c0-8 4-11 9-11s9 3 9 11c-3-3-6-4-9-4s-6 1-9 4z" fill="${hair}"/><path d="M16 23c0 8 4 11 8 11s8-3 8-11c-3 3-5 3-8 3s-5 0-8-3z" fill="${hair}"/>`;
+  }
+  return `<svg viewBox="0 0 48 48" aria-hidden="true">${back}<path d="M6 48c1-9 8-13 18-13s17 4 18 13z" fill="${shirt}" stroke="#17141c" stroke-width="1.5"/><rect x="21" y="27" width="6" height="8" fill="${skin}"/><circle cx="24" cy="21" r="9" fill="${skin}" stroke="#17141c" stroke-width="1.5"/>${front}<circle cx="20.500" cy="21.500" r="1.200" fill="#17141c"/><circle cx="27.500" cy="21.500" r="1.200" fill="#17141c"/><path d="M21.500 25.500c1.500 1.200 3.500 1.200 5 0" stroke="#17141c" stroke-width="1.100" fill="none" stroke-linecap="round"/></svg>`;
+}
+
+/* Spielanleitung (Overlay mit Schritten) */
+const MK_TOK=(l,c)=>`<span class="mk-tok" style="background:${c}">${l}</span>`;
+function mkDG(cols,cells){return `<div class="mk-dg" style="--c:${cols}">${cells.map(c=>`<div class="dc ${c[1]||''}">${c[0]||''}</div>`).join('')}</div>`;}
+function mkSlides(P){
+  const X='<span class="no">✕</span>',Y='<span class="ok">✓</span>',T=MK_TOK('A','#e5484d');
+  const s2=[];for(let r=0;r<4;r++)for(let c=0;c<4;c++){s2.push(r===1&&c===2?[T,'']:(r===1||c===2)?['<span style="opacity:.35">✕</span>','x']:['','']);}
+  const s3=[[X,'x'],[Y,'y'],[X,'x'],['',''],
+            [Y,'y'],[T,''],[Y,'y wr'],[X,'x'],
+            [X,'x'],[Y,'y'],[X,'x'],['','']];
+  return [
+    {i:'🔎',t:'Dein Fall',h:`<div class="mk-dgrow">${P.map((p,i)=>`<span class="mk-av" style="--c:${p.col}">${mkAvatar(p,i)}</span>`).join('')}</div>`,
+     p:'Jemand wurde ermordet. Alle Verdächtigen waren im Haus – aber wo genau? Aus den Aussagen findest du heraus, wer wo stand. Wer mit dem Opfer allein in einem Raum war, ist der Täter oder die Täterin.'},
+    {i:'↔',t:'Eine Person pro Zeile und Spalte',h:mkDG(4,s2),
+     p:'Auf dem Plan steht in jeder Zeile und in jeder Spalte genau eine Person. Sobald du jemanden platzierst, sind alle anderen Felder in seiner Zeile und Spalte für die übrigen Personen ausgeschlossen. Die App setzt dort automatisch ein ✕.'},
+    {i:'🧱',t:'Was «neben» bedeutet',h:mkDG(4,s3),
+     p:'«Neben» heisst: direkt oben, unten, links oder rechts angrenzend und im selben Raum. Schräg gilt nicht – und durch eine dicke Wand hindurch auch nicht.'},
+    {i:'🪴',t:'Möbel und Stühle',h:`<div class="mk-dgrow"><span class="mk-ico" style="width:46px;height:46px">${MK_ICON.Pflanze}</span><span class="mk-ico" style="width:46px;height:46px">${MK_ICON['Bücherregal']}</span><span class="mk-ico" style="width:46px;height:46px">${MK_ICON.Stuhl}</span><span class="mk-rug mk-mini" style="width:46px;height:30px;margin:8px 0 0"></span></div>`,
+     p:'Auf einem Möbelstück steht niemand. Stühle und Teppiche kannst du betreten. Aussagen wie «direkt links von der Vase» beziehen sich auf diese Möbel.'},
+    {i:'🕵',t:'Opfer und Täter',h:`<div class="mk-dgrow"><span class="mk-av" style="--c:${P[P.length-1].col}">${mkAvatar(P[P.length-1],P.length-1)}</span><span class="mk-stamp" style="align-self:center">OPFER</span><span style="align-self:center;font-weight:900;font-size:1.4rem">+</span><span class="mk-av" style="--c:${P[0].col}">${mkAvatar(P[0],0)}</span></div>`,
+     p:'Das Opfer war mit genau einer weiteren Person im selben Raum – allein. Diese Person ist der Täter oder die Täterin. Über das Opfer selbst gibt es keine weiteren Angaben.'},
+    {i:'🛠',t:'Deine Werkzeuge',h:`<ul class="mk-tl"><li><b>1</b> Feld antippen, dann unter dem Plan die Person wählen.</li><li><b>✕</b> Kreuz: Felder von Hand ausschliessen.</li><li><b>⌫</b> Radierer: Feld leeren. Gedrückt halten leert alles.</li><li><b>↶</b> Rückgängig macht den letzten Schritt rückgängig.</li><li><b>💡</b> Tipp: je nach Niveau begrenzt.</li><li><b>✎</b> Notiz: mögliche Personen klein ins Feld schreiben.</li></ul>`,
+     p:'Geprüft wird erst beim Abgeben. Stelle alle Personen auf, wähle die Anklage und drücke «Abgeben».'}
+  ];
+}
+/* ---------- Mordoku: Oberfläche ---------- */
+const MK_TIPS=[
+  'Dieses Feld findet man nur mit längerem Überlegen.',
+  'Das ergibt sich direkt aus den Aussagen und der Regel «eine Person pro Zeile und Spalte».',
+  'Überlege: Wer kann überhaupt noch in dieser Zeile oder Spalte stehen?',
+  'Kombiniere dazu die Aussagen, die zwei Personen verknüpfen (gleicher Raum, weiter oben, weiter links).',
+  'Dazu brauchst du die Raum-Überlegungen: Wie viele Personen sind in einem Raum? Wer ist allein? Wer war beim Opfer?',
+  'Das zeigt sich erst mit einer Annahme: Probiere für diese Person ein anderes Feld aus – nach ein paar Folgerungen entsteht ein Widerspruch.'
+];
+class MordokuPuzzle extends GridPuzzle{
+  constructor(def,size,lvlKey,data){
+    super(def,size,lvlKey,data);
+    this.L=data.L;this.names=data.names;this.people=data.people;this.vic=data.vic;this.mur=data.mur;
+    this.clues=data.clues;this.place=data.place;this.pos=data.pos;
+    const C=size*size;
+    this.mark=new Array(C+1).fill(0);               // letzter Platz: Bewertung der Täter-Wahl
+    this.notes=new Array(C).fill(0);
+    this.xs=new Array(C).fill(0);                    // von Hand gesetzte Kreuze
+    this.auto=new Array(C).fill(false);              // automatische Kreuze (Zeile/Spalte einer gesetzten Person)
+    this.autoOn=true;this.xMode=false;this.hist=[];
+    this.struck=new Set();this.suspect=-1;this.pop=-1;
+    this.caseNo=String(1000+Math.floor(Math.random()*9000));
+    this.padBtns=[];this.susBtns=[];
+    this.first=new Array(this.L.R).fill(-1);        // erstes Feld jedes Raums (für die Beschriftung)
+    for(let c=C-1;c>=0;c--)this.first[this.L.room[c]]=c;
+  }
+  blocked(i){return this.L.blk[i]>=0;}
+  tok(p,cls){return `<span class="${cls||'mk-tok'}" style="background:${this.people[p].col}">${this.names[p][0]}</span>`;}
+  av(p,cls){return `<span class="mk-av ${cls||''}" style="--c:${this.people[p].col}">${mkAvatar(this.people[p],p)}</span>`;}
+  baseClass(i){
+    const N=this.n,r=Math.floor(i/N),c=i%N,rm=this.L.room;
+    let cls='cell';
+    if(c===N-1)cls+=' lastc';else if(rm[i]!==rm[i+1])cls+=' tr';
+    if(r===N-1)cls+=' lastr';else if(rm[i]!==rm[i+N])cls+=' tb';
+    cls+=' fl-'+(rm[i]%8);
+    if(this.blocked(i))cls+=' mk-blk';
+    return cls;
+  }
+  calcAuto(){
+    const N=this.n,a=this.auto;a.fill(false);
+    for(let i=0;i<this.cur.length;i++)if(this.cur[i]){
+      const r=Math.floor(i/N),c=i%N;
+      for(let k=0;k<N;k++){a[r*N+k]=true;a[k*N+c]=true;}
+    }
+  }
+  refresh(){this.calcAuto();super.refresh();}
+  paint(i,d){
+    const L=this.L,rm=L.room[i];
+    let h='';
+    if(this.first[rm]===i)h+=`<span class="mk-room">${MK_ROOMS[L.rooms[rm]].n}</span>`;
+    if(L.blk[i]>=0)h+=`<span class="mk-obj" title="${MK_BLOCK[L.types[L.blk[i]]].n}">${MK_ICON[MK_BLOCK[L.types[L.blk[i]]].n]}</span>`;
+    if(L.walk[i]===1)h+='<span class="mk-rug" title="Teppich"></span>';
+    if(L.walk[i]===0)h+=`<span class="mk-chair" title="Stuhl">${MK_ICON.Stuhl}</span>`;
+    if(this.cur[i])h+=this.tok(this.cur[i]-1,i===this.pop?'mk-tok pop':'mk-tok');
+    else if(this.xs[i])h+='<span class="mk-x">✕</span>';
+    else if(this.notes[i]){
+      h+='<span class="mk-notes">';
+      for(let p=0;p<this.n;p++)if(this.notes[i]>>(p+1)&1)h+=`<i style="background:${this.people[p].col}">${this.names[p][0]}</i>`;
+      h+='</span>';
+    }
+    else if(this.autoOn&&this.auto[i]&&!this.blocked(i))h+='<span class="mk-x auto">✕</span>';
+    d.innerHTML=h;
+  }
+  onCell(i){
+    if(this.blocked(i))return;
+    if(this.xMode){
+      if(this.done||this.locked||this.cur[i])return;
+      this.snap();this.xs[i]^=1;this.sel=i;this.commit();return;
+    }
+    this.sel=i;this.refresh();
+  }
+  snap(){
+    this.hist.push({cur:this.cur.slice(),notes:this.notes.slice(),xs:this.xs.slice(),sus:this.suspect,hinted:this.hinted.slice()});
+    if(this.hist.length>300)this.hist.shift();
+  }
+  undo(){
+    if(this.done||this.locked||!this.hist.length)return;
+    const s=this.hist.pop();
+    this.cur=s.cur;this.notes=s.notes;this.xs=s.xs;this.suspect=s.sus;this.hinted=s.hinted;
+    this.mark.fill(0);this.commit();
+  }
+  clearAll(){
+    if(this.done||this.locked)return;
+    this.snap();
+    for(let i=0;i<this.cur.length;i++)if(!this.hinted[i])this.cur[i]=0;
+    this.notes.fill(0);this.xs.fill(0);this.suspect=-1;this.sel=-1;this.commit();
+  }
+  mount(ctx,stage,pad){
+    this.ctx=ctx;
+    const N=this.n,L=this.L,V=this.vic,pron=p=>this.people[p].g==='f'?'Sie':'Er';
+    stage.innerHTML='';
+    const root=document.createElement('div');root.className='mk';this.root=root;
+    const file=document.createElement('div');file.className='mk-file';
+    file.innerHTML=`<div class="mk-top"><span class="mk-tab">Fall Nr. ${this.caseNo}</span><button type="button" class="mk-help" id="mkHelp">? Anleitung</button></div>`
+      +`<h2 class="mk-place">${this.place}</h2>`
+      +`<p class="mk-vline">${this.av(V,'sm')} <b>${this.names[V]}</b> <span class="mk-stamp">OPFER</span></p>`
+      +`<p class="mk-task">Stelle alle ${N} Personen auf den Plan – in jeder Zeile und jeder Spalte steht genau eine. Wer mit dem Opfer allein in einem Raum war, hat die Tat begangen.</p>`;
+    root.appendChild(file);
+    file.querySelector('#mkHelp').addEventListener('click',()=>this.openTut());
+    const plan=document.createElement('div');plan.className='mk-plan';plan.style.setProperty('--n',N);
+    let hh='<div class="mk-nord"></div><div class="mk-colh">';
+    for(let k=0;k<N;k++)hh+=`<span>${MK_COLS[k]}</span>`;
+    hh+='</div><div class="mk-rowh">';
+    for(let r=0;r<N;r++)hh+=`<span>${r+1}</span>`;
+    plan.innerHTML=hh+'</div>';
+    plan.appendChild(this.buildBoard());root.appendChild(plan);
+    /* Personen direkt unter dem Plan (kein Scrollen auf dem Smartphone) */
+    const set=document.createElement('div');set.className='mk-set';
+    set.innerHTML='<p class="mk-padlbl">Aufstellen <small>– Feld antippen, dann Person wählen</small></p>';
+    const r1=document.createElement('div');r1.className='mk-padrow mk-setrow';set.appendChild(r1);
+    this.padBtns=[];
+    for(let p=0;p<N;p++){
+      const b=document.createElement('button');b.type='button';b.innerHTML=this.av(p,'xs')+' '+this.names[p];b.title=this.names[p];
+      b.addEventListener('click',()=>this.input(p+1));r1.appendChild(b);this.padBtns.push(b);
+    }
+    root.appendChild(set);
+    /* Werkzeuge */
+    const tools=document.createElement('div');tools.className='mk-tools';
+    const tb=(ic,txt,title,fn)=>{const b=document.createElement('button');b.type='button';b.className='mk-btn';b.title=title;b.innerHTML=`<span class="ic">${ic}</span><span class="tx">${txt}</span>`;b.addEventListener('click',fn);tools.appendChild(b);return b;};
+    this.xBtn=tb('✕','Kreuz','Kreuz-Modus: Felder antippen, um sie auszuschliessen',()=>{this.xMode=!this.xMode;this.refresh();});
+    this.delBtn=tb('⌫','Radierer','Feld leeren – gedrückt halten leert alles',()=>{});
+    let lp=null,longDone=false;
+    this.delBtn.addEventListener('pointerdown',()=>{longDone=false;lp=setTimeout(()=>{longDone=true;this.clearAll();},650);});
+    for(const ev of ['pointerup','pointerleave','pointercancel'])this.delBtn.addEventListener(ev,()=>{clearTimeout(lp);});
+    this.delBtn.addEventListener('click',()=>{if(longDone){longDone=false;return;}this.input(0);});
+    this.undoBtn=tb('↶','Rückgängig','Letzten Schritt rückgängig machen',()=>this.undo());
+    this.hintBtn=tb('💡','Tipp','Einen Tipp holen',()=>document.getElementById('btnHint').click());
+    this.noteBtn=tb('✎','Notiz','Notizen ein/aus: mögliche Personen klein ins Feld schreiben',()=>{document.getElementById('btnNotes').click();this.refresh();});
+    this.autoBtn=tb('✕✕','Auto-Kreuze','Automatische Kreuze in Zeile und Spalte ein/aus',()=>{this.autoOn=!this.autoOn;this.refresh();});
+    root.appendChild(tools);
+    const leg=document.createElement('div');leg.className='mk-legend';
+    let lh='';
+    for(let r=0;r<L.R;r++)lh+=`<span class="mk-sw fl-${r%8}">${MK_ROOMS[L.rooms[r]].n}</span>`;
+    lh+='<span class="mk-lt">Hier kann niemand stehen:</span>';
+    for(const t of L.types)lh+=`<span class="mk-it"><span class="mk-ico">${MK_ICON[MK_BLOCK[t].n]}</span>${MK_BLOCK[t].n}</span>`;
+    const w=[];
+    if(L.walk.includes(0))w.push(`<span class="mk-it"><span class="mk-ico">${MK_ICON.Stuhl}</span>Stuhl</span>`);
+    if(L.walk.includes(1))w.push('<span class="mk-it"><span class="mk-rug mk-mini"></span>Teppich</span>');
+    if(w.length)lh+='<span class="mk-lt">Begehbar:</span>'+w.join('');
+    leg.innerHTML=lh;root.appendChild(leg);
+    /* Verdächtige als Polaroid-Karten */
+    const sheet=document.createElement('div');sheet.className='mk-sheet';
+    sheet.innerHTML='<h3>Verdächtige</h3><p class="mk-note">Alle Aussagen sind wahr. Aussage antippen = abhaken.</p>';
+    const rows=document.createElement('div');rows.className='mk-rows';
+    for(const p of [...Array(N-1).keys(),V]){
+      const row=document.createElement('div');row.className='mk-row'+(p===V?' vic':'');row.style.setProperty('--c',this.people[p].col);
+      row.innerHTML=`<div class="mk-pol" style="--r:${[-1.5,1,-.5,1.5][p%4]}deg">${this.av(p)}<span class="mk-name">${this.names[p]}</span></div>`;
+      const box=document.createElement('div');box.className='mk-box';
+      if(p===V)box.innerHTML='<span class="mk-stamp">OPFER</span>';
+      const ul=document.createElement('ul');
+      if(p===V){
+        const li=document.createElement('li');li.className='fix';
+        li.textContent=`${pron(p)} war mit genau einer weiteren Person im selben Raum.`;ul.appendChild(li);
+      }
+      let any=p===V;
+      this.clues.forEach((cl,k)=>{
+        if(cl.card!==p)return;any=true;
+        const li=document.createElement('li');
+        li.textContent=(cl.obs?pron(p)+' hat beobachtet: ':'')+cl.text;
+        li.addEventListener('click',()=>{if(this.struck.has(k))this.struck.delete(k);else this.struck.add(k);li.classList.toggle('struck',this.struck.has(k));});
+        ul.appendChild(li);
+      });
+      if(!any){const li=document.createElement('li');li.className='fix none';li.textContent='macht keine Angaben.';ul.appendChild(li);}
+      box.appendChild(ul);row.appendChild(box);rows.appendChild(row);
+    }
+    sheet.appendChild(rows);root.appendChild(sheet);
+    /* Anklage */
+    const acc=document.createElement('div');acc.className='mk-acc';root.appendChild(acc);
+    const pr=document.createElement('p');pr.className='mk-printq';pr.textContent='Wer war es? ______________________';root.appendChild(pr);
+    stage.appendChild(root);
+    pad.className='';pad.removeAttribute('style');pad.innerHTML='';
+    this.buildPad(acc);
+    this.refresh();
+    let seen=false;try{seen=!!localStorage.getItem('mordoku-anleitung');}catch(e){}
+    if(!seen&&!document.body.classList.contains('embed'))this.openTut();
+  }
+  openTut(){
+    if(this.tut)return;
+    try{localStorage.setItem('mordoku-anleitung','1');}catch(e){}
+    const S=mkSlides(this.people),ov=document.createElement('div');ov.className='mk-tut';ov.setAttribute('role','dialog');ov.setAttribute('aria-modal','true');
+    this.root.appendChild(ov);this.tut=ov;
+    let k=0;
+    const close=()=>{ov.remove();this.tut=null;};
+    const draw=()=>{
+      const s=S[k],last=k===S.length-1;
+      ov.innerHTML=`<div class="mk-tc"><span class="mk-tbadge">${s.i}</span><h3>${s.t}</h3>${s.h}<p>${s.p}</p>`
+        +`<div class="mk-tdots">${S.map((_,j)=>`<i class="${j===k?'on':''}"></i>`).join('')}</div>`
+        +`<div class="mk-tnav">${last?'':'<button type="button" class="mk-btn skip">Überspringen</button>'}${k?'<button type="button" class="mk-btn back">Zurück</button>':''}<button type="button" class="mk-btn go">${last?'Los geht’s':'Weiter'}</button></div></div>`;
+      const q=c=>ov.querySelector(c);
+      if(q('.skip'))q('.skip').addEventListener('click',close);
+      if(q('.back'))q('.back').addEventListener('click',()=>{k--;draw();});
+      q('.go').addEventListener('click',()=>{if(last)close();else{k++;draw();}});
+      q('.go').focus();
+      if(document.body.classList.contains('embed'))q('.mk-tc').scrollIntoView({block:'center'});
+    };
+    ov.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+    draw();
+  }
+  buildPad(pad){
+    pad.className='mk-pad mk-acc';
+    const mk=(txt)=>{const p=document.createElement('p');p.className='mk-padlbl';p.innerHTML=txt;pad.appendChild(p);const row=document.createElement('div');row.className='mk-padrow';pad.appendChild(row);return row;};
+    this.susBtns=[];
+    const r2=mk('Anklage <small>– wer war mit dem Opfer allein in einem Raum?</small>');
+    for(let p=0;p<this.n;p++){
+      if(p===this.vic){this.susBtns.push(null);continue;}
+      const b=document.createElement('button');b.type='button';b.innerHTML=this.av(p,'xs')+' '+this.names[p];
+      b.addEventListener('click',()=>this.accuse(p));r2.appendChild(b);this.susBtns.push(b);
+    }
+  }
+  afterRefresh(){
+    this.pop=-1;
+    const off=this.done||this.locked;
+    this.padBtns.forEach((b,p)=>{b.classList.toggle('used',this.cur.includes(p+1));b.disabled=off;});
+    if(this.delBtn)this.delBtn.disabled=off;
+    if(this.noteBtn){this.noteBtn.disabled=off;this.noteBtn.classList.toggle('on',!!(this.ctx&&this.ctx.noteMode()));this.noteBtn.classList.add('note');}
+    if(this.xBtn){this.xBtn.disabled=off;this.xBtn.classList.toggle('on',this.xMode&&!off);}
+    if(this.autoBtn)this.autoBtn.classList.toggle('on',this.autoOn);
+    if(this.undoBtn)this.undoBtn.disabled=off||!this.hist.length;
+    const m=this.mark[this.cur.length];
+    this.susBtns.forEach((b,p)=>{if(!b)return;const on=p===this.suspect;b.className=on?('on'+(m===1?' ok':m===2?' bad':'')):'';b.disabled=off;});
+    setTimeout(()=>this.syncTools(),0);
+  }
+  syncTools(){
+    const hb=document.getElementById('btnHint');
+    if(!this.hintBtn||!hb)return;
+    this.hintBtn.disabled=hb.disabled;
+    this.hintBtn.querySelector('.tx').textContent=hb.textContent.replace('💡','').trim();
+  }
+  accuse(p){
+    if(this.done||this.locked)return;
+    this.snap();
+    this.suspect=this.suspect===p?-1:p;
+    this.commit();
+  }
+  input(v){
+    if(!this.editable()||this.blocked(this.sel))return;
+    const i=this.sel;
+    if(this.ctx.noteMode()&&v){
+      if(this.cur[i])return;
+      this.snap();this.notes[i]^=(1<<v);
+    } else if(v&&this.cur[i]===v){
+      this.snap();this.setCell(i,0);
+    } else {
+      this.snap();
+      if(v){const old=this.cur.indexOf(v);if(old>=0&&old!==i)this.setCell(old,0);}   // jede Person steht nur einmal auf dem Plan
+      this.setCell(i,v);if(v)this.pop=i;
+    }
+    this.commit();
+  }
+  afterSet(i,v){
+    this.notes[i]=0;this.xs[i]=0;
+    if(v)for(let c=0;c<this.notes.length;c++)this.notes[c]&=~(1<<v);
+  }
+  afterReset(){this.notes.fill(0);}
+  reset(){this.suspect=-1;this.xs.fill(0);this.hist=[];this.xMode=false;super.reset();}
+  handleKey(e){
+    const k=e.key;
+    if((e.ctrlKey||e.metaKey)&&(k==='z'||k==='Z')){this.undo();return true;}
+    if(e.ctrlKey||e.metaKey||e.altKey)return false;
+    if(k==='Backspace'||k==='Delete'||k==='0'){this.input(0);return true;}
+    if(k.length===1){
+      const p=this.names.findIndex(n=>n[0].toLowerCase()===k.toLowerCase());
+      if(p>=0){this.input(p+1);return true;}
+    }
+    return false;
+  }
+  cellState(i){const v=this.cur[i];if(!v)return 'skip';return v===this.sol[i]?'right':'wrong';}
+  complete(){
+    let n=0;for(const v of this.cur)if(v)n++;
+    return n===this.n&&this.suspect>=0;
+  }
+  solved(){return this.cur.every((v,k)=>v===this.sol[k])&&this.suspect===this.mur;}
+  lock(){
+    super.lock();
+    this.mark[this.cur.length]=this.suspect===this.mur?0:2;
+    this.refresh();
+  }
+  finish(){
+    this.done=true;
+    for(let i=0;i<this.cur.length;i++)if(this.cur[i]&&!this.hinted[i])this.mark[i]=1;
+    this.mark[this.cur.length]=1;
+    this.refresh();
+  }
+  reveal(){
+    const C=this.cur.length;
+    for(let i=0;i<C;i++){
+      this.mark[i]=0;
+      if(this.cur[i]&&this.cur[i]!==this.sol[i])this.mark[i]=2;
+      else if(this.sol[i]&&this.cur[i]===this.sol[i]){if(!this.hinted[i])this.mark[i]=1;}
+      else if(this.sol[i])this.hinted[i]=true;
+      this.cur[i]=this.sol[i];
+    }
+    this.mark[C]=this.suspect===this.mur?1:0;
+    this.suspect=this.mur;this.xs.fill(0);
+    this.afterReset();
+    this.done=true;this.refresh();
+  }
+  hint(){
+    this.hist=[];
+    const P=this.n,fixed=new Array(P).fill(-1);
+    for(let c=0;c<this.cur.length;c++)if(this.cur[c]&&this.cur[c]===this.sol[c])fixed[this.cur[c]-1]=c;
+    const open=[];for(let p=0;p<P;p++)if(fixed[p]<0)open.push(p);
+    if(!open.length)return null;
+    let pick=-1,tier=0;
+    for(let t=1;t<=5&&pick<0;t++){
+      const st=mkState(this.L,P,this.clues,this.vic,fixed);
+      mkRun(st,t);
+      if(st.bad)break;
+      const got=open.filter(p=>mkOne(st,p)===this.pos[p]);
+      if(got.length){pick=randOf(got);tier=t;}
+    }
+    if(pick<0)pick=randOf(open);
+    const c=this.pos[pick],old=this.cur.indexOf(pick+1);
+    if(old>=0){this.cur[old]=0;this.mark[old]=0;this.hinted[old]=false;}
+    this.cur[c]=pick+1;this.hinted[c]=true;this.mark[c]=0;
+    this.afterSet(c,pick+1);
+    this.sel=c;this.refresh();
+    return `Tipp (gelb): ${this.names[pick]} gehört auf Feld ${mkCoord(this.n,c)}. ${MK_TIPS[tier]}`;
+  }
+  winInfo(){return `Überführt: <b>${this.names[this.mur]}</b>`;}
+}
+
+/* ----- Anmeldung beim Kern ----- */
+const MK_W1={room:5,row:3,col:3,near:3,odir:3,on:3,edge:1,nroom:1};
+const MK_W2={room:2,odir:2,near:3,on:2,edge:2,nroom:3,nrow:2,ncol:2,nnear:2,nedge:1,row:1,col:1};
+const MK_W3={room:1,odir:1,north1:3,west1:3,near:2,on:1,edge:1,nroom:2,nrow:1,ncol:1,nnear:2,non:1,nedge:1,same:4,diff:3,north:4,west:4};
+const MK_W4={room:.5,odir:1,north1:2,west1:2,pair:2,near:2,on:1,edge:1,nroom:2,nrow:1,ncol:1,nnear:2,non:1,nedge:1,same:3,diff:3,north:3,west:3,alone:3,nalone:3,count:4};
+const GAME={
+    title:'Mordoku-Trainer',
+    id:'mordoku', name:'Mordoku', icon:'🔎', units:['Person','Personen'],
+    intro:'Krimi-Logik: Wer stand wo – und wer war es? Stelle alle Personen auf den Plan und überführe die Täterin oder den Täter.',
+    sizes:[4,5,6,7], size:5, lvl:'sl', tools:{notes:true},
+    sizeTitle:'Grösse (Plan und Anzahl Personen)',
+    missing:n=>'',
+    levels:{
+      sl:{tier:1,w:MK_W1,desc:'Klare Aussagen: Raum, Zeile, Spalte oder ein Möbelstück verraten fast direkt, wo jemand stand. Dazu gilt: eine Person pro Zeile und Spalte. Ideal zum Einstieg.'},
+      l: {tier:2,w:MK_W2,desc:'Weniger direkte Aussagen, mehr «war nicht …». Frage dich: Wer passt überhaupt noch in diese Zeile oder Spalte?'},
+      m: {tier:3,w:MK_W3,desc:'Jetzt kommen Aussagen über zwei Personen dazu («im selben Raum», «weiter oben als»). Du musst sie miteinander kombinieren. Notizen helfen.'},
+      s: {tier:4,w:MK_W4,desc:'Räume zählen: «allein im Raum», «genau 2 Personen in der Küche» und die Opfer-Regel werden zum Schlüssel. Ohne Notizen geht es kaum.'},
+      ss:{tier:5,pmin:1,pmax:2,w:MK_W4,desc:'Alle Regeln reichen nicht ganz: Ein- bis zweimal musst du eine Annahme testen («Angenommen, Mia steht hier …») und einen Widerspruch finden.'},
+      us:{tier:5,pmin:3,pmax:12,w:MK_W4,sizes:[5,6,7],desc:'Das Härteste: Mehrere Annahmen hintereinander sind nötig – jede muss sauber zu Ende gedacht werden. Alles ist logisch herleitbar, braucht aber Ausdauer. Erst ab 5×5.'}
+    },
+    create(size,lvl){
+      const t0=Date.now();
+      for(let t=0;t<6000&&(t<40||Date.now()-t0<12000);t++){const d=mkGenerate(size,this.levels[lvl]);if(d)return new MordokuPuzzle(this,size,lvl,d);}
+      return null;
+    },
+    rules(n){
+      return `
+        <li>Stelle alle <b>${n} Personen</b> auf den Plan. In jeder <b>Zeile</b> und in jeder <b>Spalte</b> steht genau <b>eine</b> Person.</li>
+        <li>Die dicken Linien sind <b>Wände</b>, sie trennen die Räume (Bodenbelag und Name siehe Legende).</li>
+        <li>Auf einem Feld mit einem <b>Möbelstück</b> (z. B. <span class="mk-ico">${MK_ICON.Pflanze}</span> oder <span class="mk-ico">${MK_ICON['Bücherregal']}</span>) steht niemand. <b>Stühle</b> <span class="mk-ico">${MK_ICON.Stuhl}</span> und <b>Teppiche</b> sind begehbar.</li>
+        <li><b>«Direkt neben»</b> heisst: waagrecht oder senkrecht angrenzend <b>und im selben Raum</b> (nicht durch eine Wand, nicht schräg). Das gilt auch für «direkt unterhalb einer Pflanze» oder «direkt links von einer Vase».</li>
+        <li><b>Oben, unten, links, rechts</b> beziehen sich auf den Plan, so wie du ihn vor dir siehst. «Weiter oben als» heisst: in einer Zeile mit kleinerer Nummer – die Spalte spielt dabei keine Rolle. «An einer Aussenwand» = auf einem Feld am Rand des Plans.</li>
+        <li>Die Verdächtigen heissen A…, B…, C… – ihr Spielstein trägt den Anfangsbuchstaben. Das <b>Opfer</b> ist immer <b>V</b>.</li>
+        <li><b>Alle Aussagen sind wahr.</b> Das Opfer war mit <b>genau einer weiteren Person</b> im selben Raum – sie hat die Tat begangen. Über das Opfer selbst gibt es keine weiteren Angaben.</li>
+        <li><b>Strategie:</b> Beginne mit Personen, über die du viel weisst. Steht jemand fest, sind seine Zeile und seine Spalte für alle anderen gesperrt.</li>
+        <li><b>Für Fortgeschrittene:</b> Wer passt überhaupt noch in eine Zeile? Wie viele Personen können in einem Raum sein? Bei «Sehr schwer» und «Ultraschwer»: Nimm an, eine Person stehe auf einem bestimmten Feld, und prüfe, ob ein Widerspruch entsteht.</li>
+        <li><b>Abgeben:</b> Stelle alle Personen auf, wähle unten, wer es war, und drücke «Abgeben». Erst jetzt wird korrigiert: Stimmt etwas nicht, wird es rot und du musst ein neues Rätsel beginnen. Prüfe deshalb vorher alles nochmals in Ruhe.</li>
+        <li><b>Kreuze:</b> Steht eine Person fest, setzt die App in ihrer Zeile und Spalte automatisch ein helles ✕ (abschaltbar mit «Auto-Kreuze»). Mit «Kreuz» schliesst du Felder von Hand aus. Das ist nur eine Gedächtnisstütze – geprüft wird erst beim Abgeben.</li>
+        <li><b>Radierer und Rückgängig:</b> Der Radierer leert das gewählte Feld, gedrückt halten leert alles. «Rückgängig» macht den letzten Schritt rückgängig (auch Strg/Cmd + Z).</li>
+        <li><b>Notizen:</b> Schalte «Notizen» ein, um mögliche Personen klein ins Feld zu schreiben.</li>
+        <li><b>Tastatur:</b> Anfangsbuchstabe der Person, Pfeiltasten zum Bewegen, Entf/Backspace zum Löschen, N für Notizen.</li>`;
+    }
+  };
+
+/* =====================================================================
+   KERN – Oberfläche (gilt für jedes Rätsel)
+   Erwartet eine globale Konstante GAME (vom Rätsel-Modul definiert).
+   Kümmert sich um: Auswahl Grösse/Niveau, Zeit, Statistik, Prüfen, Tipp,
+   Neu beginnen, Lösung zeigen, Drucken, Gewonnen-Dialog, Tastatur,
+   Einbettung in die Plattform (?embed=1).
+   ===================================================================== */
+const $=id=>document.getElementById(id);
+const def=GAME;
+const EMBED=/[?&]embed=1/.test(location.search)||window.name==='raetsel-embed';
+const STORE_KEY='raetsel-trainer-v1-'+def.id;
+const settings={size:def.size,lvl:def.lvl};
+let solUsed=false,puz=null,noteMode=false,tips=0,checks=0,startT=0,timerId=null,genToken=0;
+
+$('autoCheck').checked=false;
+function loadStore(){
+  try{
+    const o=JSON.parse(localStorage.getItem(STORE_KEY)||'{}');
+    if(def.sizes.includes(o.size))settings.size=o.size;
+    if(def.levels[o.lvl])settings.lvl=o.lvl;
+  }catch(e){}
+}
+function saveStore(){try{localStorage.setItem(STORE_KEY,JSON.stringify(settings));}catch(e){}}
+
+/* Meldungen, Zeit, Statistik */
+function showMsg(t,type){const m=$('msg');m.textContent=t;m.className='msg show '+type;}
+function hideMsg(){$('msg').className='msg';}
+function elapsed(){return Math.floor((Date.now()-startT)/1000);}
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function startTimer(){stopTimer();startT=Date.now();$('stTime').textContent='00:00';timerId=setInterval(()=>$('stTime').textContent=fmt(elapsed()),1000);}
+function stopTimer(){if(timerId)clearInterval(timerId);timerId=null;}
+/* Deutlich sichtbare Kennzeichnung: Wurde die Lösung angezeigt, bleibt das für dieses Rätsel sichtbar
+   (auch nach «Neu beginnen» und nach dem Lösen) – ein Screenshot kann also nicht als eigene Lösung gelten. */
+function updateStatus(){
+  const st=$('stStatus'),won=puz&&puz.done&&!solUsed&&puz.solved(),lk=puz&&puz.locked&&!solUsed,rdy=puz&&!puz.done&&!puz.locked&&puz.complete();
+  st.className=(solUsed||lk)?'bad':won?'good':'';
+  st.textContent=solUsed?'⚠ Lösung angezeigt':lk?'✖ nicht richtig gelöst':won?'✔ selbst gelöst':rdy?'bereit zum Abgeben':'in Arbeit';
+  $('solBanner').style.display=solUsed?'block':'none';
+  $('stage').classList.toggle('sol',solUsed);
+}
+/* Tipps je Niveau: einfache Stufen keine, Mittel 1, Schwer 2, Sehr schwer/Ultraschwer 3 */
+const TIP_LIMIT={sl:0,l:0,m:1,s:2,ss:3,us:3};
+function tipLimit(){return TIP_LIMIT[puz?puz.lvlKey:settings.lvl]||0;}
+function tipText(l){const n=TIP_LIMIT[l]||0;return n===0?'Keine Tipps möglich.':n===1?'Maximal 1 Tipp.':`Maximal ${n} Tipps.`;}
+function updateStats(){$('stTips').textContent=tips+'/'+tipLimit();$('stChecks').textContent=checks;}
+
+const ctx={
+  autoCheck:()=>$('autoCheck').checked,
+  noteMode:()=>noteMode,
+  hideMsg,
+  changed:()=>{refreshTools();},
+
+  msg:showMsg
+};
+/* Beschriftungen – Rätsel dürfen sie überschreiben (def.sizeLabel, def.tag, def.newLabel …) */
+const sizeLabel=v=>def.sizeLabel?def.sizeLabel(v):`${v} × ${v}`;
+const tagOf=(s,l)=>def.tag?def.tag(s,l):`${LEVEL_NAMES[l]} (${s}×${s})`;
+
+/* Auswahl-Leisten */
+function makeSeg(el,items,current,onPick){
+  el.innerHTML='';
+  for(const it of items){
+    const b=document.createElement('button');
+    b.textContent=it.label;b.dataset.v=it.v;
+    b.classList.toggle('on',String(it.v)===String(current));
+    b.addEventListener('click',()=>onPick(it.v));
+    el.appendChild(b);
+  }
+}
+/* Manche Niveaus gibt es nur ab einer bestimmten Grösse (levels.xx.sizes) */
+function sizesFor(){return def.levels[settings.lvl].sizes||def.sizes;}
+function buildOptions(){
+  const allowed=sizesFor();
+  if(!allowed.includes(settings.size))settings.size=allowed.find(n=>n>=settings.size)||allowed[allowed.length-1];
+  makeSeg($('sizeSeg'),allowed.map(n=>({v:n,label:sizeLabel(n)})),settings.size,v=>{settings.size=v;buildOptions();saveStore();updateSetupSel();});
+  makeSeg($('lvlSeg'),Object.keys(def.levels).map(k=>({v:k,label:LEVEL_NAMES[k]})),settings.lvl,v=>{settings.lvl=v;buildOptions();saveStore();updateSetupSel();});
+  const d=def.levels[settings.lvl].desc;
+  $('lvlDesc').textContent=(typeof d==='function'?d(settings.size):d)+' '+tipText(settings.lvl);
+  $('sizeSeg').style.display=def.sizes.length>1?'':'none';
+  $('sizeLbl').style.display=def.sizes.length>1?'':'none';
+}
+
+
+/* Schritt 1: Rahmenbedingungen wählen – Schritt 2: Rätsel erstellen */
+const TOOL_IDS=['btnCheck','btnNotes','btnHint','btnReset','btnSolve','btnPrint','btnSubmit'];
+function toolsDisabled(on){for(const id of TOOL_IDS){const e=$(id);if(e)e.disabled=on;}if($('autoCheck'))$('autoCheck').disabled=on;}
+function showSetup(){
+  ++genToken;stopTimer();puz=null;tips=0;checks=0;solUsed=false;
+  const stage=$('stage');stage.classList.remove('loading','sol');
+  stage.innerHTML='';document.body.classList.add('setup-mode');
+  const pad=$('pad');pad.innerHTML='';pad.removeAttribute('style');
+  toolsDisabled(true);hideMsg();
+  $('stLevel').textContent='–';$('stTime').textContent='00:00';$('stStatus').textContent='noch kein Rätsel';$('stStatus').className='';
+  if($('stTips'))$('stTips').textContent='–';
+  if($('solBanner'))$('solBanner').style.display='none';
+  updateSetupSel();
+}
+function updateSetupSel(){const e=$('setupSel');if(e)e.textContent=(def.sizes.length>1?sizeLabel(settings.size)+' · ':'')+LEVEL_NAMES[settings.lvl];}
+function startGame(){
+  if(puz&&!puz.done&&!puz.locked&&!solUsed&&!confirm('Das laufende Rätsel wird verworfen. Wirklich ein neues Rätsel erstellen?'))return;
+  newGame();
+}
+
+/* Neues Rätsel */
+function newGame(){
+  const token=++genToken, stage=$('stage');
+  document.body.classList.remove('setup-mode');
+  stopTimer();
+  stage.classList.add('loading');
+  showMsg(`${def.name} wird erstellt …`,'info');
+  setTimeout(()=>{
+    if(token!==genToken)return;
+    let p=null;
+    try{p=def.create(settings.size,settings.lvl);}catch(err){console.error(err);}
+    stage.classList.remove('loading');
+    if(!p){showMsg('Das Rätsel konnte nicht erstellt werden. Bitte nochmals versuchen.','warn');return;}
+    puz=p;tips=0;checks=0;solUsed=false;
+    toolsDisabled(false);
+    puz.mount(ctx,stage,$('pad'));setLocked(false);
+    if($('autoCheck').checked)puz.applyAutoCheck(true);
+    $('stLevel').textContent=tagOf(settings.size,settings.lvl);
+    $('phTitle').textContent=`${def.name} · ${tagOf(settings.size,settings.lvl)}`;
+    $('rules').innerHTML=def.rules(settings.size);
+    updateStats();updateStatus();startTimer();hideMsg();
+  },30);
+}
+
+/* Werkzeuge */
+function check(){
+  if(!puz||puz.done||puz.locked)return;
+  if(puz.customCheck){checks++;updateStats();const r=puz.customCheck();showMsg(r.text,r.type);return;}
+  checks++;
+  const {wrong,empty,right}=puz.check();
+  updateStats();
+  if(puz.solved()){win();return;}
+  const [one,many]=def.units;
+  if(wrong===0){
+    showMsg(right===0?`Noch nichts eingetragen. ${def.missing(empty)}`
+      :`Super! ${right===1?'Die eingetragene '+one+' ist':'Alle '+right+' eingetragenen '+many+' sind'} richtig. ${def.missing(empty)}`,'good');
+  } else {
+    showMsg(`${wrong} ${wrong===1?one+' ist':many+' sind'} falsch (rot). ${right} richtig. ${def.missing(empty)} Korrigiere die roten Felder.`,'warn');
+  }
+}
+function hint(){
+  if(!puz||puz.done||puz.locked||tips>=tipLimit())return;
+  const t=puz.hint();
+  if(t===null)return;
+  tips++;updateStats();showMsg(t,'info');
+  ctx.changed();
+}
+function resetGame(){
+  if(!puz||puz.locked||!confirm('Alle eigenen Eingaben löschen und neu beginnen? Bereits benutzte Tipps bleiben verbraucht.'))return;
+  puz.reset();startTimer();hideMsg();updateStats();refreshTools();
+}
+function showSolution(){
+  if(!puz)return;
+  if(!confirm(`Wirklich die ganze Lösung anzeigen? Das ${def.name}-Rätsel gilt dann als nicht gelöst.`))return;
+  solUsed=true;puz.reveal();stopTimer();refreshTools();
+  showMsg('Lösung angezeigt: grün = du hattest es richtig, rot = war falsch, gelb = war leer.','info');
+}
+/* Werkzeuge sperren/freigeben (nach einem vollständig falsch gelösten Rätsel bleibt nur «Lösung zeigen» / «Neues Rätsel») */
+function setLocked(on){
+  for(const id of ['btnCheck','btnHint','btnReset','btnNotes','autoCheck'])$(id).disabled=on;
+  $('autoCheck').parentElement.classList.toggle('off',on);
+  document.querySelectorAll('#pad button').forEach(b=>b.disabled=on);
+  refreshTools();
+}
+/* «Abgeben» ist erst möglich, wenn alles ausgefüllt ist. Dann sind Überprüfen und Tipp gesperrt – sonst könnte man vor dem Abgeben noch Fehler suchen. */
+function refreshTools(){
+  if(!puz)return;
+  const over=puz.done||puz.locked,comp=!over&&puz.complete();
+  $('btnSubmit').disabled=!comp;
+  $('btnSubmit').title=comp?'':'Erst alle Felder ausfüllen';
+  const lim=tipLimit(),left=lim-tips;
+  $('btnHint').textContent=lim?`💡 Tipp (${left} übrig)`:'💡 Keine Tipps';
+  if(!puz.locked){$('btnCheck').disabled=true;$('btnHint').disabled=over||comp||left<=0;}
+  updateStatus();
+  if(comp&&!$('msg').classList.contains('show'))showMsg('Alles ausgefüllt. Prüfe nochmals in Ruhe – mit «Abgeben» gibst du das Rätsel ab. Erst dann wird korrigiert.','info');
+}
+/* Abgeben: erst jetzt wird ausgewertet */
+function submitPuz(){
+  if(!puz||puz.done||puz.locked||!puz.complete())return;
+  if(puz.solved())win();else fail();
+}
+/* Rätsel ist vollständig ausgefüllt, aber nicht richtig: Fehler rot, keine Korrektur mehr möglich */
+function fail(){
+  puz.lock();stopTimer();setLocked(true);
+  const bad=puz.mark.filter(m=>m===2).length;
+  $('winTitle').textContent='✖ Leider nicht richtig';
+  $('winText').innerHTML=`${def.name} · Niveau: <b>${tagOf(settings.size,settings.lvl)}</b><br>Zeit: <b>${fmt(elapsed())}</b> · Tipps: <b>${tips} von ${tipLimit()}</b><br>Du hast das Rätsel abgegeben, aber <b>${bad===1?'ein Feld ist':bad+' Felder sind'} falsch</b> (rot markiert).<br>Abgegebene Rätsel können nicht mehr korrigiert werden – starte ein <b>neues Rätsel</b> und versuche es nochmals.`;
+  $('winTip').style.display='none';
+  $('btnWinNew').textContent='Neues Rätsel';$('btnWinClose').textContent='Fehler ansehen';
+  $('overlay').classList.add('show');
+  showMsg('Abgegeben – nicht richtig gelöst: Die roten Felder sind falsch. Korrigieren ist nicht mehr möglich – starte ein neues Rätsel.','warn');
+}
+function win(){
+  $('winTip').style.display='';$('btnWinNew').textContent='Nächstes Rätsel';$('btnWinClose').textContent='Schliessen';
+  puz.finish();stopTimer();
+  $('winText').innerHTML=`${def.name} · Niveau: <b>${tagOf(settings.size,settings.lvl)}</b><br>Zeit: <b>${fmt(elapsed())}</b><br>${puz.winInfo?puz.winInfo()+'<br>':''}Tipps: <b>${tips} von ${tipLimit()}</b>`;
+  if(solUsed){$('winTitle').textContent='⚠ Gelöst – aber mit Lösung';$('winText').innerHTML+='<br><b style="color:var(--bad)">Die Lösung wurde angezeigt – das zählt nicht als selbst gelöst.</b>';}
+  else $('winTitle').textContent='🎉 Geschafft!';
+  refreshTools();
+  $('overlay').classList.add('show');
+  showMsg(solUsed?'Gelöst – aber die Lösung wurde vorher angezeigt.':`Gelöst in ${fmt(elapsed())} mit ${tips} Tipps.`,solUsed?'warn':'good');
+}
+function toggleNotes(){
+  if(def.tools.undo){if(puz)puz.undo();return;}
+  if(!def.tools.notes)return;
+  noteMode=!noteMode;
+  $('btnNotes').textContent=(def.tools.notesLabel||'✎ Notizen')+': '+(noteMode?'ein':'aus');
+  $('btnNotes').classList.toggle('on',noteMode);
+}
+
+/* Ereignisse */
+$('btnNew').addEventListener('click',startGame);
+$('btnBack').addEventListener('click',()=>{if(puz&&!puz.done&&!puz.locked&&!solUsed&&!confirm('Das laufende Rätsel wird verworfen. Zu den Einstellungen wechseln?'))return;showSetup();});
+$('btnCheck').addEventListener('click',check);
+$('btnSubmit').addEventListener('click',submitPuz);
+$('btnHint').addEventListener('click',hint);
+$('btnReset').addEventListener('click',resetGame);
+$('btnSolve').addEventListener('click',showSolution);
+$('btnPrint').addEventListener('click',()=>{if(puz){puz.clearSelection();}window.print();});
+$('btnNotes').addEventListener('click',toggleNotes);
+$('btnWinNew').addEventListener('click',()=>{$('overlay').classList.remove('show');showSetup();});
+$('btnWinClose').addEventListener('click',()=>$('overlay').classList.remove('show'));
+$('autoCheck').addEventListener('change',()=>{if(puz)puz.applyAutoCheck($('autoCheck').checked);});
+
+document.addEventListener('keydown',e=>{
+  if($('overlay').classList.contains('show')||!puz)return;
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  const t=e.target;
+  if(e.key===' '&&t&&t.closest&&t.closest('button,input,summary,select,textarea'))return;   // Leertaste bedient dann das Bedienelement
+  if((e.key==='n'||e.key==='N')&&def.tools.notes&&!def.tools.undo){toggleNotes();return;}
+  if((e.key==='z'||e.key==='Z'||e.key==='Backspace')&&def.tools.undo&&puz.undo){puz.undo();e.preventDefault();return;}
+  if(puz.keydown(e))e.preventDefault();
+});
+
+/* Einbettung: Höhe an die Plattform melden */
+function setupEmbed(){
+  document.body.classList.add('embed');
+  if(window.parent===window)return;
+  const send=()=>window.parent.postMessage({type:'raetsel-height',id:def.id,h:Math.ceil(document.body.getBoundingClientRect().height)},'*');
+  if(window.ResizeObserver)new ResizeObserver(send).observe(document.body);
+  window.addEventListener('load',send);
+  send();
+}
+
+/* Start */
+(function init(){
+  loadStore();
+  $('gameTitle').textContent=def.title;
+  $('sub').textContent=def.intro;
+  $('newTitle').textContent=def.newLabel||'Neues '+def.name;
+  $('btnNew').textContent='Rätsel erstellen';
+  $('sizeLbl').textContent=def.sizeTitle||'Grösse';
+  if(def.tools.undo)$('btnNotes').textContent='↶ Zug zurück';
+  else if(def.tools.notesLabel)$('btnNotes').textContent=def.tools.notesLabel+': aus';
+  if(def.tools.auto===false)$('autoCheck').parentElement.style.display='none';
+  if(def.tools.legend===false)document.querySelector('.legend').style.display='none';
+  $('rulesTitle').textContent='So geht '+def.name;
+  $('btnNotes').style.display=(def.tools.notes||def.tools.undo)?'':'none';
+  $('btnHint').classList.toggle('full',!(def.tools.notes||def.tools.undo));
+  document.title=def.title+' – Rätsel-Trainer';
+  if(EMBED)setupEmbed();
+  buildOptions();
+  showSetup();
+})();
+
+</script>
+</body>
+</html>
